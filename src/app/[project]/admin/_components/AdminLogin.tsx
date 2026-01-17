@@ -1,12 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-interface AdminLoginProps {
-  onSuccess: () => void;
-}
-
-export const AdminLogin = ({ onSuccess }: AdminLoginProps) => {
+export const AdminLogin = () => {
+  const router = useRouter();
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -29,10 +27,12 @@ export const AdminLogin = ({ onSuccess }: AdminLoginProps) => {
         throw new Error('Invalid password');
       }
 
-      onSuccess();
+      // Refresh the page to re-evaluate server-side auth
+      router.refresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An error occurred';
       setError(message);
+      alert(`Error: ${message}`);
     } finally {
       setIsLoading(false);
     }

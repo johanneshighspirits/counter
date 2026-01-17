@@ -1,6 +1,4 @@
-'use client';
-
-import { useState, useEffect } from 'react';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { ResetButton } from './_components/ResetButton';
 import { MaxCountInput } from './_components/MaxCountInput';
@@ -10,40 +8,16 @@ interface PageProps {
   params: Promise<{ project: string }>;
 }
 
-export default function AdminPage(props: PageProps) {
-  const [project, setProject] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+export default async function AdminPage(props: PageProps) {
+  const { project } = await props.params;
 
-  useEffect(() => {
-    // Get project from params
-    props.params.then((params) => {
-      setProject(params.project);
-    });
-
-    // Check authentication status from server
-    const checkAuth = async () => {
-      try {
-        const response = await fetch('/api/admin/check-auth');
-        const data = await response.json();
-        setIsAuthenticated(data.authenticated);
-      } catch {
-        setIsAuthenticated(false);
-      }
-    };
-
-    checkAuth();
-  }, [props.params]);
-
-  if (isAuthenticated === null || !project) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        Loading...
-      </div>
-    );
-  }
+  // Check authentication server-side
+  const cookieStore = await cookies();
+  const authCookie = cookieStore.get('admin_authenticated');
+  const isAuthenticated = !!authCookie && authCookie.value === 'true';
 
   if (!isAuthenticated) {
-    return <AdminLogin onSuccess={() => setIsAuthenticated(true)} />;
+    return <AdminLogin />;
   }
 
   return (
