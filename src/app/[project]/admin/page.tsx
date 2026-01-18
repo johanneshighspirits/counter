@@ -22,7 +22,7 @@ export default async function AdminPage(props: PageProps) {
 
   return (
     <main>
-      <div className="grid place-items-center min-h-screen">
+      <div className="grid place-items-center min-h-[100dvh]">
         <div className="flex flex-col gap-8 items-center">
           <Link href={`/${project}/counter`}>Back to Counter</Link>
           <Link href={`/${project}/menu`}>Price list</Link>

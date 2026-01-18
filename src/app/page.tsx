@@ -3,7 +3,7 @@ import Image from 'next/image';
 
 export default function Home() {
   return (
-    <main className="flex items-center justify-center min-h-screen bg-linear-to-tr from-black to-green-950">
+    <main className="flex items-center justify-center min-h-[100dvh] bg-linear-to-tr from-black to-green-950">
       <div className="text-center px-4 flex flex-col gap-4">
         <h1 className="font-brand text-4xl">Team 17</h1>
         <div className="text-xl flex flex-col gap-4">
