@@ -37,3 +37,95 @@ ALTER PUBLICATION supabase_realtime ADD TABLE event_counter;
 
 -- Verify the table was created
 SELECT * FROM event_counter;
+
+CREATE TABLE event_counter_log (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  counter_id int NOT NULL,
+  delta int NOT NULL,
+  new_count int NOT NULL,
+  source text,
+  created_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+create or replace function update_counter(
+  p_counter_id int,
+  p_delta int,
+  p_source text default null
+)
+returns int
+language plpgsql
+as $$
+declare
+  v_new_count int;
+begin
+  update event_counter
+  set count = count + p_delta
+  where id = p_counter_id
+  returning count into v_new_count;
+
+  if v_new_count < 0 then
+    update event_counter set count = 0 where id = p_counter_id;
+    v_new_count := 0;
+  end if;
+
+  insert into event_counter_log (
+    counter_id,
+    delta,
+    new_count,
+    source
+  )
+  values (
+    p_counter_id,
+    p_delta,
+    v_new_count,
+    p_source
+  );
+
+  return v_new_count;
+end;
+$$;
+
+--- Charts
+
+create or replace function get_occupancy_by_minute()
+returns table (
+  minute timestamptz,
+  entries int,
+  exits int,
+  people_inside int
+)
+language sql
+as $$
+with min_max as (
+  select
+    date_trunc('minute', min(created_at)) as start_minute,
+    date_trunc('minute', max(created_at)) as end_minute
+  from event_counter_log
+  where created_at >= now() - interval '6 hours'
+),
+all_minutes as (
+  select generate_series(start_minute, end_minute, interval '1 minute') as minute
+  from min_max
+),
+per_minute as (
+  select
+    date_trunc('minute', created_at) as minute,
+    count(*) filter (where delta > 0) as entries,
+    count(*) filter (where delta < 0) as exits,
+    sum(delta) as net_change
+  from event_counter_log
+  where created_at >= now() - interval '6 hours'
+  group by minute
+)
+select
+  m.minute,
+  coalesce(p.entries, 0) as entries,
+  coalesce(p.exits, 0) as exits,
+  sum(coalesce(p.net_change, 0)) over (
+    order by m.minute
+    rows between unbounded preceding and current row
+  ) as people_inside
+from all_minutes m
+left join per_minute p on p.minute = m.minute
+order by m.minute;
+$$;

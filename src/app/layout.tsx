@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Viewport, Metadata } from 'next';
 import { Bebas_Neue, Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 
@@ -21,6 +21,14 @@ const bebasNeue = Bebas_Neue({
 export const metadata: Metadata = {
   title: 'Hammarby Hockey | Team 17',
   description: 'Real-time visitor counter',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: 'black',
 };
 
 export default function RootLayout({

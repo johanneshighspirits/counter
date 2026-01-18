@@ -95,12 +95,11 @@ export default function Home() {
       setCount(newCount);
       setError(null);
 
-      const { error: updateError } = await supabase
-        .from('event_counter')
-        .update({
-          count: newCount,
-        })
-        .eq('id', 1);
+      const { error: updateError } = await supabase.rpc('update_counter', {
+        p_counter_id: 1,
+        p_delta: 1,
+        p_source: 'main-door',
+      });
 
       if (updateError) {
         // Revert on error
@@ -127,12 +126,11 @@ export default function Home() {
       setCount(newCount);
       setError(null);
 
-      const { error: updateError } = await supabase
-        .from('event_counter')
-        .update({
-          count: newCount,
-        })
-        .eq('id', 1);
+      const { error: updateError } = await supabase.rpc('update_counter', {
+        p_counter_id: 1,
+        p_delta: -1,
+        p_source: 'main-door',
+      });
 
       if (updateError) {
         // Revert on error

@@ -1,21 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServerClient } from '@/lib/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabasePublishableKey =
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-    if (!supabaseUrl || !supabasePublishableKey) {
-      return NextResponse.json(
-        {
-          error: 'Missing Supabase configuration',
-        },
-        { status: 500 }
-      );
-    }
-
     const { maxCount } = await request.json();
 
     if (!maxCount || typeof maxCount !== 'number' || maxCount < 1) {
@@ -27,7 +14,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabasePublishableKey);
+    const supabase = getSupabaseServerClient();
 
     // Update max_count
     const { error: updateError } = await supabase
