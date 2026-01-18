@@ -103,28 +103,37 @@ with min_max as (
   from event_counter_log
   where created_at >= now() - interval '6 hours'
 ),
+
 all_minutes as (
   select generate_series(start_minute, end_minute, interval '1 minute') as minute
   from min_max
 ),
+
 per_minute as (
   select
     date_trunc('minute', created_at) as minute,
     count(*) filter (where delta > 0) as entries,
-    count(*) filter (where delta < 0) as exits,
-    sum(delta) as net_change
+    count(*) filter (where delta < 0) as exits
   from event_counter_log
   where created_at >= now() - interval '6 hours'
-  group by minute
+  group by 1
 )
+
 select
   m.minute,
   coalesce(p.entries, 0) as entries,
   coalesce(p.exits, 0) as exits,
-  sum(coalesce(p.net_change, 0)) over (
-    order by m.minute
-    rows between unbounded preceding and current row
+
+  -- authoritative occupancy from latest event at or before this minute
+  (
+    select e.new_count
+    from event_counter_log e
+    where e.created_at <= m.minute + interval '1 minute' - interval '1 microsecond'
+      and e.created_at >= now() - interval '6 hours'
+    order by e.created_at desc
+    limit 1
   ) as people_inside
+
 from all_minutes m
 left join per_minute p on p.minute = m.minute
 order by m.minute;

@@ -62,7 +62,7 @@ export default function Home() {
                 setCount(newData.count);
                 setMaxCount(newData.max_count);
               }
-            }
+            },
           )
           .subscribe();
 
@@ -145,7 +145,7 @@ export default function Home() {
   };
 
   return (
-    <main className="flex items-center justify-center min-h-[100dvh] bg-linear-to-tr from-black to-green-950">
+    <main className="flex items-center justify-center min-h-dvh bg-linear-to-tr from-black to-green-950">
       <div className="text-center px-4 flex flex-col gap-4">
         {/* Error Message */}
         {error && (

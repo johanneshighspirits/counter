@@ -39,7 +39,7 @@ export const AdminLogin = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[100dvh]">
+    <div className="flex items-center justify-center min-h-dvh">
       <form
         onSubmit={handleSubmit}
         className="flex flex-col gap-4 w-80 p-6 border border-white rounded-lg">

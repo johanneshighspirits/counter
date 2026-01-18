@@ -6,7 +6,7 @@ import {
 import Link from 'next/link';
 
 export default async function ChartsPage(
-  props: PageProps<'/[project]/counter/analytics'>
+  props: PageProps<'/[project]/counter/analytics'>,
 ) {
   const { project } = await props.params;
 
