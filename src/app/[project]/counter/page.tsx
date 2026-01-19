@@ -30,7 +30,7 @@ export default async function Home(props: PageProps<'/[project]/counter'>) {
         initialCount={data.count}
         initialMaxCount={data.max_count}
       />
-      <RefreshOnFocus />
+      {/* <RefreshOnFocus /> */}
     </main>
   );
 }

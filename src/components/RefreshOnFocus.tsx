@@ -3,17 +3,21 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
-export function RefreshOnFocus({ maxStaleMs = 10_000 }) {
-  const router = useRouter();
+export const useOnAppFocus = (onAppFocus: () => void, maxStaleMs = 5_000) => {
   const lastActiveRef = useRef<number>(0);
+  const intervalRef = useRef<NodeJS.Timeout>(undefined);
 
   useEffect(() => {
     lastActiveRef.current = Date.now();
 
-    const checkStale = () => {
+    const checkStale = (e) => {
+      console.log(e);
+      if (e?.type === 'pageshow') {
+        window.alert('pageshow!');
+      }
       const now = Date.now();
       if (now - lastActiveRef.current > maxStaleMs) {
-        router.refresh();
+        onAppFocus();
       }
       lastActiveRef.current = now;
     };
@@ -24,15 +28,21 @@ export function RefreshOnFocus({ maxStaleMs = 10_000 }) {
     globalThis.window.addEventListener('focus', checkStale);
 
     // Fallback: run when JS resumes execution
-    const interval = setInterval(checkStale, 1000);
+    intervalRef.current = setInterval(checkStale, 1000);
 
     return () => {
       globalThis.document.removeEventListener('visibilitychange', checkStale);
       globalThis.window.removeEventListener('pageshow', checkStale);
       globalThis.window.removeEventListener('focus', checkStale);
-      clearInterval(interval);
+      clearInterval(intervalRef.current);
     };
-  }, [router, maxStaleMs]);
+  }, [onAppFocus, maxStaleMs]);
 
+  return null;
+};
+
+export function RefreshOnFocus({ maxStaleMs = 10_000 }) {
+  const router = useRouter();
+  useOnAppFocus(() => router.refresh(), maxStaleMs);
   return null;
 }

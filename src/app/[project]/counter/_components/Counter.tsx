@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { CircularCounter } from '@/components/CircularCounter';
+import { useOnAppFocus } from '@/components/RefreshOnFocus';
 
 interface CounterData {
   id: number;
@@ -25,6 +26,16 @@ export function Counter({
   const [error, setError] = useState<string | null>(null);
   const titleRef = useRef(globalThis.document?.title);
 
+  useOnAppFocus(async () => {
+    const supabase = getSupabaseClient();
+    const count = await supabase
+      .from('event_counter')
+      .select('*')
+      .eq('id', 1)
+      .single();
+    console.log(count);
+    debugger;
+  });
   // Fetch initial count and subscribe to real-time updates
   useEffect(() => {
     const supabase = getSupabaseClient();
