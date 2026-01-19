@@ -8,15 +8,28 @@ export function RefreshOnFocus() {
 
   useEffect(() => {
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (globalThis.document.visibilityState === 'visible') {
         console.log('refreshing');
         router.refresh();
       }
     };
 
-    document.addEventListener('visibilitychange', onVisibilityChange);
+    const onPageShow = () => {
+      // Fires on iOS when restoring from background / bfcache
+      router.refresh();
+    };
+
+    globalThis.document.addEventListener(
+      'visibilitychange',
+      onVisibilityChange,
+    );
+    globalThis.window.addEventListener('pageshow', onPageShow);
     return () =>
-      document.removeEventListener('visibilitychange', onVisibilityChange);
+      globalThis.document.removeEventListener(
+        'visibilitychange',
+        onVisibilityChange,
+      );
+    globalThis.window.removeEventListener('pageshow', onPageShow);
   }, [router]);
 
   return null;
