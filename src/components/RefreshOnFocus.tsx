@@ -24,12 +24,13 @@ export function RefreshOnFocus() {
       onVisibilityChange,
     );
     globalThis.window.addEventListener('pageshow', onPageShow);
-    return () =>
+    return () => {
       globalThis.document.removeEventListener(
         'visibilitychange',
         onVisibilityChange,
       );
-    globalThis.window.removeEventListener('pageshow', onPageShow);
+      globalThis.window.removeEventListener('pageshow', onPageShow);
+    };
   }, [router]);
 
   return null;
