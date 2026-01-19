@@ -10,7 +10,8 @@ export const useOnAppFocus = (onAppFocus: () => void, maxStaleMs = 5_000) => {
   useEffect(() => {
     lastActiveRef.current = Date.now();
 
-    const checkStale = (e) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const checkStale = (e: any) => {
       console.log(e);
       if (e?.type === 'pageshow') {
         window.alert('pageshow!');
