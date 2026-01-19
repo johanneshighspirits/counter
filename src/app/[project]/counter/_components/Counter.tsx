@@ -28,14 +28,17 @@ export function Counter({
 
   useOnAppFocus(async () => {
     const supabase = getSupabaseClient();
-    const count = await supabase
+    const { data } = await supabase
       .from('event_counter')
       .select('*')
       .eq('id', 1)
       .single();
-    console.log(count);
-    debugger;
-  });
+
+    if (data) {
+      setCount(data.count);
+      setMaxCount(data.max_count);
+    }
+  }, 5_000);
   // Fetch initial count and subscribe to real-time updates
   useEffect(() => {
     const supabase = getSupabaseClient();

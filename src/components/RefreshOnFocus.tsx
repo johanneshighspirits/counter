@@ -10,9 +10,7 @@ export const useOnAppFocus = (onAppFocus: () => void, maxStaleMs = 5_000) => {
   useEffect(() => {
     lastActiveRef.current = Date.now();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const checkStale = (e: any) => {
-      console.log(e);
+    const checkStale = (e?: Event) => {
       if (e?.type === 'pageshow') {
         window.alert('pageshow!');
       }
@@ -29,7 +27,11 @@ export const useOnAppFocus = (onAppFocus: () => void, maxStaleMs = 5_000) => {
     globalThis.window.addEventListener('focus', checkStale);
 
     // Fallback: run when JS resumes execution
-    intervalRef.current = setInterval(checkStale, 1000);
+    intervalRef.current = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        checkStale();
+      }
+    }, 1000);
 
     return () => {
       globalThis.document.removeEventListener('visibilitychange', checkStale);
