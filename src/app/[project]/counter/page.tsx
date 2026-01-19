@@ -1,6 +1,7 @@
 import { getProjectScopedServerClient } from '@/lib/supabase-server';
 import { Counter } from './_components/Counter';
 import { notFound, redirect } from 'next/navigation';
+import { RefreshOnFocus } from '@/components/RefreshOnFocus';
 
 export default async function Home(props: PageProps<'/[project]/counter'>) {
   const { project } = await props.params;
@@ -29,6 +30,7 @@ export default async function Home(props: PageProps<'/[project]/counter'>) {
         initialCount={data.count}
         initialMaxCount={data.max_count}
       />
+      <RefreshOnFocus />
     </main>
   );
 }

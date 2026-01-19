@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { CircularCounter } from '@/components/CircularCounter';
@@ -22,9 +22,9 @@ export function Counter({
 }) {
   const [count, setCount] = useState<number>(initialCount);
   const [maxCount, setMaxCount] = useState<number>(initialMaxCount);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  console.log({ project });
+  const titleRef = useRef(globalThis.document?.title);
+
   // Fetch initial count and subscribe to real-time updates
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -32,9 +32,7 @@ export function Counter({
 
     const initializeCounter = async () => {
       try {
-        setLoading(true);
         setError(null);
-
         // Subscribe to real-time updates
         subscription = supabase
           .channel('event_counter_channel')
@@ -55,12 +53,9 @@ export function Counter({
             },
           )
           .subscribe();
-
-        setLoading(false);
       } catch (err) {
         console.error('Error initializing counter:', err);
         setError('An error occurred');
-        setLoading(false);
       }
     };
 
@@ -73,6 +68,12 @@ export function Counter({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (titleRef.current) {
+      globalThis.document.title = `(${count}) ${titleRef.current}`;
+    }
+  }, [count]);
 
   // Increment counter
   const incrementCount = async () => {
@@ -145,38 +146,32 @@ export function Counter({
         )}
 
         {/* Counter Display */}
-        {loading ? (
-          <div className="text-2xl text-gray-600 mb-8">Loading...</div>
-        ) : (
-          <>
-            <CircularCounter count={count} maxCount={maxCount} />
+        <CircularCounter count={count} maxCount={maxCount} />
 
-            {/* Buttons */}
-            <div className="flex gap-6 justify-center">
-              {/* Decrement Button */}
-              <button
-                onClick={decrementCount}
-                disabled={count === null || count <= 0}
-                className="cursor-pointer size-20 bg-red-500 hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-4xl font-bold rounded-full aspect-square transition-colors duration-200 shadow-lg hover:shadow-xl active:scale-95 transform"
-                aria-label="Decrement visitor count">
-                −
-              </button>
+        {/* Buttons */}
+        <div className="flex gap-6 justify-center">
+          {/* Decrement Button */}
+          <button
+            onClick={decrementCount}
+            disabled={count === null || count <= 0}
+            className="cursor-pointer size-20 bg-red-500 hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-4xl font-bold rounded-full aspect-square transition-colors duration-200 shadow-lg hover:shadow-xl active:scale-95 transform"
+            aria-label="Decrement visitor count">
+            −
+          </button>
 
-              {/* Increment Button */}
-              <button
-                onClick={incrementCount}
-                className="cursor-pointer size-20 bg-green-500 hover:bg-green-600 text-white text-4xl font-bold rounded-full aspect-square transition-colors duration-200 shadow-lg hover:shadow-xl active:scale-95 transform"
-                aria-label="Increment visitor count">
-                +
-              </button>
-            </div>
+          {/* Increment Button */}
+          <button
+            onClick={incrementCount}
+            className="cursor-pointer size-20 bg-green-500 hover:bg-green-600 text-white text-4xl font-bold rounded-full aspect-square transition-colors duration-200 shadow-lg hover:shadow-xl active:scale-95 transform"
+            aria-label="Increment visitor count">
+            +
+          </button>
+        </div>
 
-            {/* Info Text */}
-            <p className="text-gray-600 text-sm mt-8">
-              Changes sync across all devices in real-time
-            </p>
-          </>
-        )}
+        {/* Info Text */}
+        <p className="text-gray-600 text-sm mt-8">
+          Changes sync across all devices in real-time
+        </p>
       </div>
     </>
   );
