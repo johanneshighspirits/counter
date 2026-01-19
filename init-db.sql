@@ -85,6 +85,15 @@ begin
 end;
 $$;
 
+--- Projects
+
+create table projects (
+    id serial primary key,          -- internal unique ID
+    slug text not null unique,      -- public stable identifier (used in URLs)
+    name text not null,             -- human-readable name
+    created_at timestamp with time zone default now()
+);
+
 --- Charts
 
 create or replace function get_occupancy_by_minute()
