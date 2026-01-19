@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
         {
           error: 'Missing Supabase configuration',
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -25,13 +25,27 @@ export async function POST(request: NextRequest) {
       .update({ count: 0 })
       .eq('id', 1);
 
+    try {
+      const { error } = await supabase
+        .from('event_counter_log')
+        .delete()
+        .eq('counter_id', 1);
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.error('Could not truncate event_counter_log');
+      console.error(error);
+    }
+
     if (updateError) {
       return NextResponse.json(
         {
           error: 'Failed to reset counter',
           details: updateError.message,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -40,7 +54,7 @@ export async function POST(request: NextRequest) {
         success: true,
         message: 'Counter reset to 0',
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -49,7 +63,7 @@ export async function POST(request: NextRequest) {
         error: 'Internal server error',
         details: errorMessage,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

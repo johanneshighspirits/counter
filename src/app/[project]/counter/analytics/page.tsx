@@ -1,4 +1,4 @@
-import { getSupabaseServerClient } from '@/lib/supabase-server';
+import { getProjectScopedServerClient } from '@/lib/supabase-server';
 import {
   OccupancyDataPoint,
   OccupancyChart,
@@ -10,7 +10,7 @@ export default async function ChartsPage(
 ) {
   const { project } = await props.params;
 
-  const supabase = getSupabaseServerClient();
+  const { supabase } = await getProjectScopedServerClient(project);
   const { data } = await supabase.rpc('get_occupancy_by_minute');
 
   return (
