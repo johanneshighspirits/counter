@@ -1,37 +1,38 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
-export function RefreshOnFocus() {
+export function RefreshOnFocus({ maxStaleMs = 10_000 }) {
   const router = useRouter();
+  const lastActiveRef = useRef<number>(0);
 
   useEffect(() => {
-    const onVisibilityChange = () => {
-      if (globalThis.document.visibilityState === 'visible') {
-        console.log('refreshing');
+    lastActiveRef.current = Date.now();
+
+    const checkStale = () => {
+      const now = Date.now();
+      if (now - lastActiveRef.current > maxStaleMs) {
         router.refresh();
       }
+      lastActiveRef.current = now;
     };
 
-    const onPageShow = () => {
-      // Fires on iOS when restoring from background / bfcache
-      router.refresh();
-    };
+    // Best-effort events (desktop + mobile Safari)
+    globalThis.document.addEventListener('visibilitychange', checkStale);
+    globalThis.window.addEventListener('pageshow', checkStale);
+    globalThis.window.addEventListener('focus', checkStale);
 
-    globalThis.document.addEventListener(
-      'visibilitychange',
-      onVisibilityChange,
-    );
-    globalThis.window.addEventListener('pageshow', onPageShow);
+    // Fallback: run when JS resumes execution
+    const interval = setInterval(checkStale, 1000);
+
     return () => {
-      globalThis.document.removeEventListener(
-        'visibilitychange',
-        onVisibilityChange,
-      );
-      globalThis.window.removeEventListener('pageshow', onPageShow);
+      globalThis.document.removeEventListener('visibilitychange', checkStale);
+      globalThis.window.removeEventListener('pageshow', checkStale);
+      globalThis.window.removeEventListener('focus', checkStale);
+      clearInterval(interval);
     };
-  }, [router]);
+  }, [router, maxStaleMs]);
 
   return null;
 }
