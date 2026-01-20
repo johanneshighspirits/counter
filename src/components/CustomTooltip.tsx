@@ -1,4 +1,4 @@
-import { OccupancyDataPoint } from '@/app/[project]/counter/analytics/_components/OccupancyChart';
+import { OccupancyDataPoint } from '@/app/[projectSlug]/counter/analytics/_components/OccupancyChart';
 import React from 'react';
 
 type TooltipProps = {

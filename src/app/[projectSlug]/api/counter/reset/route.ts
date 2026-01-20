@@ -1,35 +1,26 @@
-import { createClient } from '@supabase/supabase-js';
+import { getProjectScopedServerClient } from '@/lib/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: RouteContext<'/[projectSlug]/api/counter/reset'>,
+) {
   try {
-    // Use publishable key for client-side compatible operations
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabasePublishableKey =
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-    if (!supabaseUrl || !supabasePublishableKey) {
-      return NextResponse.json(
-        {
-          error: 'Missing Supabase configuration',
-        },
-        { status: 500 },
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabasePublishableKey);
+    const { projectSlug } = await params;
+    const { supabase, project } =
+      await getProjectScopedServerClient(projectSlug);
 
     // Reset counter to 0
     const { error: updateError } = await supabase
       .from('event_counter')
       .update({ count: 0 })
-      .eq('id', 1);
+      .eq('id', project.id);
 
     try {
       const { error } = await supabase
         .from('event_counter_log')
         .delete()
-        .eq('counter_id', 1);
+        .eq('counter_id', project.id);
 
       if (error) {
         throw error;

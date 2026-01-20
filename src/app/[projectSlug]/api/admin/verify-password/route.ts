@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  // { params }: RouteContext<'/[projectSlug]/api/admin/verify-password'>,
+) {
   try {
     const { password } = await request.json();
     const adminPassword = process.env.ADMIN_PASSWORD;
@@ -8,7 +11,7 @@ export async function POST(request: NextRequest) {
     if (!adminPassword) {
       return NextResponse.json(
         { error: 'Admin password not configured' },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -33,7 +36,7 @@ export async function POST(request: NextRequest) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json(
       { error: 'Internal server error', details: errorMessage },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

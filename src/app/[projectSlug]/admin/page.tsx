@@ -4,12 +4,10 @@ import { ResetButton } from './_components/ResetButton';
 import { MaxCountInput } from './_components/MaxCountInput';
 import { AdminLogin } from './_components/AdminLogin';
 
-interface PageProps {
-  params: Promise<{ project: string }>;
-}
-
-export default async function AdminPage(props: PageProps) {
-  const { project } = await props.params;
+export default async function AdminPage(
+  props: PageProps<'/[projectSlug]/admin'>,
+) {
+  const { projectSlug } = await props.params;
 
   // Check authentication server-side
   const cookieStore = await cookies();
@@ -17,19 +15,19 @@ export default async function AdminPage(props: PageProps) {
   const isAuthenticated = !!authCookie && authCookie.value === 'true';
 
   if (!isAuthenticated) {
-    return <AdminLogin />;
+    return <AdminLogin projectSlug={projectSlug} />;
   }
 
   return (
     <main>
       <div className="grid place-items-center min-h-dvh">
         <div className="flex flex-col gap-8 items-center">
-          <Link href={`/${project}/counter`}>Back to Counter</Link>
-          <Link href={`/${project}/menu`}>Price list</Link>
+          <Link href={`/${projectSlug}/counter`}>Back to Counter</Link>
+          <Link href={`/${projectSlug}/menu`}>Price list</Link>
 
           <div className="flex flex-col gap-6">
-            <ResetButton />
-            <MaxCountInput />
+            <ResetButton projectSlug={projectSlug} />
+            <MaxCountInput projectSlug={projectSlug} />
           </div>
         </div>
       </div>

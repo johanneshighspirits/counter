@@ -1,9 +1,13 @@
 import { getProjectScopedServerClient } from '@/lib/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: RouteContext<'/[projectSlug]/api/counter/max-count'>,
+) {
   try {
-    const { slug, maxCount } = await request.json();
+    const { projectSlug } = await params;
+    const { maxCount } = await request.json();
 
     if (!maxCount || typeof maxCount !== 'number' || maxCount < 1) {
       return NextResponse.json(
@@ -14,7 +18,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { supabase, project } = await getProjectScopedServerClient(slug);
+    const { supabase, project } =
+      await getProjectScopedServerClient(projectSlug);
 
     // Update max_count
     const { error: updateError } = await supabase

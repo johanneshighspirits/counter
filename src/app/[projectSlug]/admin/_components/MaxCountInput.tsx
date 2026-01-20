@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-export const MaxCountInput = () => {
+export const MaxCountInput = ({ projectSlug }: { projectSlug: string }) => {
   const [maxCount, setMaxCount] = useState<string>('300');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +17,7 @@ export const MaxCountInput = () => {
         throw new Error('Please enter a valid number greater than 0');
       }
 
-      const response = await fetch('/api/counter/max-count', {
+      const response = await fetch(`/${projectSlug}/api/counter/max-count`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

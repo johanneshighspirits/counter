@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export const AdminLogin = () => {
+export const AdminLogin = ({ projectSlug }: { projectSlug: string }) => {
   const router = useRouter();
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -15,13 +15,16 @@ export const AdminLogin = () => {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch('/api/admin/verify-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `/${projectSlug}/api/admin/verify-password`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ password }),
         },
-        body: JSON.stringify({ password }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error('Invalid password');

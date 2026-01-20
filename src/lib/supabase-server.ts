@@ -16,7 +16,7 @@ export async function getProjectScopedServerClient(projectSlug: string) {
 
   const { data: project } = await supabase
     .from('projects')
-    .select('id')
+    .select('id,name')
     .eq('slug', projectSlug)
     .single();
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { CircularCounter } from '@/components/CircularCounter';
@@ -13,25 +13,26 @@ interface CounterData {
 }
 
 export function Counter({
-  project,
+  projectId,
+  projectName,
   initialCount,
   initialMaxCount,
 }: {
-  project: string;
+  projectId: number;
+  projectName: string;
   initialCount: number;
   initialMaxCount: number;
 }) {
   const [count, setCount] = useState<number>(initialCount);
   const [maxCount, setMaxCount] = useState<number>(initialMaxCount);
   const [error, setError] = useState<string | null>(null);
-  const titleRef = useRef(globalThis.document?.title);
 
   useOnAppFocus(async () => {
     const supabase = getSupabaseClient();
     const { data } = await supabase
       .from('event_counter')
       .select('*')
-      .eq('id', 1)
+      .eq('id', projectId)
       .single();
 
     if (data) {
@@ -84,10 +85,10 @@ export function Counter({
   }, []);
 
   useEffect(() => {
-    if (titleRef.current) {
-      globalThis.document.title = `(${count}) ${titleRef.current}`;
+    if (projectName) {
+      globalThis.document.title = `(${count}) ${projectName}`;
     }
-  }, [count]);
+  }, [projectName, count]);
 
   // Increment counter
   const incrementCount = async () => {
