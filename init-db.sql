@@ -8,6 +8,7 @@
 CREATE TABLE event_counter (
   id SERIAL PRIMARY KEY,
   count INT NOT NULL DEFAULT 0,
+  column tickets_sold INT NOT NULL DEFAULT 0,
   max_count INT NOT NULL DEFAULT 300,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
@@ -59,10 +60,13 @@ declare
   v_new_count int;
 begin
   update event_counter
-  set count = count + p_delta
+  set
+    count = count + p_delta,
+    tickets_sold = tickets_sold + case when p_delta > 0 then p_delta else 0 end
   where id = p_counter_id
   returning count into v_new_count;
 
+  -- Clamp occupancy to 0
   if v_new_count < 0 then
     update event_counter set count = 0 where id = p_counter_id;
     v_new_count := 0;
@@ -85,6 +89,7 @@ begin
 end;
 $$;
 
+
 --- Projects
 
 create table projects (
@@ -104,8 +109,9 @@ returns table (
   people_inside int
 )
 language sql
+stable
 as $$
-with min_max as (
+with bounds as (
   select
     date_trunc('minute', min(created_at)) as start_minute,
     date_trunc('minute', max(created_at)) as end_minute
@@ -113,37 +119,51 @@ with min_max as (
   where created_at >= now() - interval '6 hours'
 ),
 
-all_minutes as (
-  select generate_series(start_minute, end_minute, interval '1 minute') as minute
-  from min_max
+minutes as (
+  select
+    generate_series(
+      bounds.start_minute,
+      bounds.end_minute,
+      interval '1 minute'
+    ) as minute
+  from bounds
 ),
 
-per_minute as (
+per_minute_events as (
   select
     date_trunc('minute', created_at) as minute,
-    count(*) filter (where delta > 0) as entries,
-    count(*) filter (where delta < 0) as exits
+    sum(delta) filter (where delta > 0) as entries,
+    abs(sum(delta)) filter (where delta < 0) as exits
   from event_counter_log
   where created_at >= now() - interval '6 hours'
   group by 1
+),
+
+occupancy as (
+  select
+    m.minute,
+
+    -- entries & exits (default 0)
+    coalesce(p.entries, 0) as entries,
+    coalesce(p.exits, 0) as exits,
+
+    -- authoritative occupancy at end of this minute
+    (
+      select e.new_count
+      from event_counter_log e
+      where
+        e.created_at < m.minute + interval '1 minute'
+        and e.created_at >= now() - interval '6 hours'
+      order by e.created_at desc
+      limit 1
+    ) as people_inside
+
+  from minutes m
+  left join per_minute_events p
+    on p.minute = m.minute
 )
 
-select
-  m.minute,
-  coalesce(p.entries, 0) as entries,
-  coalesce(p.exits, 0) as exits,
-
-  -- authoritative occupancy from latest event at or before this minute
-  (
-    select e.new_count
-    from event_counter_log e
-    where e.created_at <= m.minute + interval '1 minute' - interval '1 microsecond'
-      and e.created_at >= now() - interval '6 hours'
-    order by e.created_at desc
-    limit 1
-  ) as people_inside
-
-from all_minutes m
-left join per_minute p on p.minute = m.minute
-order by m.minute;
+select *
+from occupancy
+order by minute;
 $$;

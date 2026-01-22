@@ -13,6 +13,8 @@ export const CustomTooltip = ({ active, payload }: TooltipProps) => {
     const exits = payload.find((p) => p.dataKey === 'exits')?.value ?? 0;
     const people_inside =
       payload.find((p) => p.dataKey === 'people_inside')?.value ?? 0;
+    const tickets_sold =
+      payload.find((p) => p.dataKey === 'tickets_sold')?.value ?? 0;
     const minute = payload[0].payload.minute; // original timestamp
 
     return (
@@ -24,7 +26,10 @@ export const CustomTooltip = ({ active, payload }: TooltipProps) => {
           })}
         </div>
         <div>
-          Antal: <span className="font-bold">{people_inside}</span>
+          Sålda biljetter: <span className="font-bold">{tickets_sold}</span>
+        </div>
+        <div>
+          Nuvarande antal: <span className="font-bold">{people_inside}</span>
         </div>
         {entries > 0 ? (
           <div className="text-green-400">In: {entries}</div>

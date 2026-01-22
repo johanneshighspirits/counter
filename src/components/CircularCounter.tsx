@@ -65,8 +65,12 @@ export const CircularCounter = ({ count, maxCount }: CircularCounterProps) => {
         />
       </svg>
 
-      <div className="text-center z-1">
-        <p className="text-8xl font-bold font-mono">{count}</p>
+      <div className="text-center z-1 p-16">
+        <p
+          className="text-8xl font-bold font-mono"
+          style={{ width: `${maxCount.toString().length}ch` }}>
+          {count}
+        </p>
         <p className="text-gray-400">
           Max: <span className="font-semibold">{maxCount}</span>
         </p>

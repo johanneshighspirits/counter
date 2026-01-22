@@ -5,11 +5,13 @@ import { getSupabaseClient } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { CircularCounter } from '@/components/CircularCounter';
 import { useOnAppFocus } from '@/components/RefreshOnFocus';
+import Image from 'next/image';
 
 interface CounterData {
   id: number;
   count: number;
   max_count: number;
+  tickets_sold: number;
 }
 
 export function Counter({
@@ -17,14 +19,18 @@ export function Counter({
   projectName,
   initialCount,
   initialMaxCount,
+  initialTicketsSold,
 }: {
   projectId: number;
   projectName: string;
   initialCount: number;
   initialMaxCount: number;
+  initialTicketsSold: number;
 }) {
   const [count, setCount] = useState<number>(initialCount);
   const [maxCount, setMaxCount] = useState<number>(initialMaxCount);
+  const [ticketsSold, setTicketsSold] = useState<number>(initialTicketsSold);
+
   const [error, setError] = useState<string | null>(null);
 
   useOnAppFocus(async () => {
@@ -38,6 +44,7 @@ export function Counter({
     if (data) {
       setCount(data.count);
       setMaxCount(data.max_count);
+      setTicketsSold(data.tickets_sold);
     }
   }, 5_000);
   // Fetch initial count and subscribe to real-time updates
@@ -46,6 +53,9 @@ export function Counter({
     let subscription: RealtimeChannel | null = null;
 
     const initializeCounter = async () => {
+      if (projectId == null) {
+        return;
+      }
       try {
         setError(null);
         // Subscribe to real-time updates
@@ -57,13 +67,14 @@ export function Counter({
               event: '*',
               schema: 'public',
               table: 'event_counter',
-              filter: 'id=eq.1',
+              filter: `id=eq.${projectId}`,
             },
             (payload) => {
               if (payload.new && typeof payload.new === 'object') {
                 const newData = payload.new as CounterData;
                 setCount(newData.count);
                 setMaxCount(newData.max_count);
+                setTicketsSold(newData.tickets_sold);
               }
             },
           )
@@ -82,7 +93,7 @@ export function Counter({
         supabase.removeChannel(subscription);
       }
     };
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     if (projectName) {
@@ -96,9 +107,12 @@ export function Counter({
       const supabase = getSupabaseClient();
       const previousCount = count;
       const newCount = (count ?? 0) + 1;
+      const previousTicketsSold = ticketsSold;
+      const newTicketsSold = (previousTicketsSold ?? 0) + 1;
 
       // Optimistic update
       setCount(newCount);
+      setTicketsSold(newTicketsSold);
       setError(null);
 
       const { error: updateError } = await supabase.rpc('update_counter', {
@@ -110,6 +124,7 @@ export function Counter({
       if (updateError) {
         // Revert on error
         setCount(previousCount);
+        setTicketsSold(previousTicketsSold);
         setError('Failed to increment counter');
         console.error('Update error:', updateError);
       }
@@ -151,43 +166,43 @@ export function Counter({
   };
 
   return (
-    <>
-      <div className="text-center px-4 flex flex-col gap-4">
-        {/* Error Message */}
-        {error && (
-          <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-            {error}
-          </div>
-        )}
-
-        {/* Counter Display */}
-        <CircularCounter count={count} maxCount={maxCount} />
-
-        {/* Buttons */}
-        <div className="flex gap-6 justify-center">
-          {/* Decrement Button */}
-          <button
-            onClick={decrementCount}
-            disabled={count === null || count <= 0}
-            className="cursor-pointer size-20 bg-red-500 hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-4xl font-bold rounded-full aspect-square transition-colors duration-200 shadow-lg hover:shadow-xl active:scale-95 transform"
-            aria-label="Decrement visitor count">
-            −
-          </button>
-
-          {/* Increment Button */}
-          <button
-            onClick={incrementCount}
-            className="cursor-pointer size-20 bg-green-500 hover:bg-green-600 text-white text-4xl font-bold rounded-full aspect-square transition-colors duration-200 shadow-lg hover:shadow-xl active:scale-95 transform"
-            aria-label="Increment visitor count">
-            +
-          </button>
+    <div className="text-center px-4 flex flex-col gap-4">
+      {/* Error Message */}
+      {error && (
+        <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+          {error}
         </div>
+      )}
 
-        {/* Info Text */}
-        <p className="text-gray-600 text-sm mt-8">
-          Changes sync across all devices in real-time
-        </p>
+      {/* Counter Display */}
+      <CircularCounter count={count} maxCount={maxCount} />
+
+      {/* Buttons */}
+      <div className="flex gap-6 justify-center">
+        {/* Decrement Button */}
+        <button
+          onClick={decrementCount}
+          disabled={count === null || count <= 0}
+          className="cursor-pointer size-20 bg-red-500 hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-4xl font-bold rounded-full aspect-square transition-colors duration-200 shadow-lg hover:shadow-xl active:scale-95 transform"
+          aria-label="Decrement visitor count">
+          −
+        </button>
+
+        {/* Increment Button */}
+        <button
+          onClick={incrementCount}
+          className="cursor-pointer size-20 bg-green-500 hover:bg-green-600 text-white text-4xl font-bold rounded-full aspect-square transition-colors duration-200 shadow-lg hover:shadow-xl active:scale-95 transform"
+          aria-label="Increment visitor count">
+          +
+        </button>
       </div>
-    </>
+
+      <p>
+        <span className="text-slate-400">Sålda biljetter: </span>
+        <span className="font-mono font-bold">{ticketsSold}</span>
+      </p>
+      {/* Info Text */}
+      <p className="text-gray-600 text-sm mt-8">Enheter är synkade i realtid</p>
+    </div>
   );
 }

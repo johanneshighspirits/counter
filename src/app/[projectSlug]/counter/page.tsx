@@ -8,7 +8,7 @@ export default async function Home(props: PageProps<'/[projectSlug]/counter'>) {
   // Fetch initial count and config
   const { data, error: fetchError } = await supabase
     .from('event_counter')
-    .select('count, max_count')
+    .select('count, max_count, tickets_sold')
     .eq('id', project.id)
     .single();
 
@@ -29,6 +29,7 @@ export default async function Home(props: PageProps<'/[projectSlug]/counter'>) {
         projectName={project.name}
         initialCount={data.count}
         initialMaxCount={data.max_count}
+        initialTicketsSold={data.tickets_sold}
       />
       {/* <RefreshOnFocus /> */}
     </main>

@@ -10,10 +10,10 @@ export async function POST(
     const { supabase, project } =
       await getProjectScopedServerClient(projectSlug);
 
-    // Reset counter to 0
+    // Reset counter and ticketsSold to 0
     const { error: updateError } = await supabase
       .from('event_counter')
-      .update({ count: 0 })
+      .update({ count: 0, tickets_sold: 0 })
       .eq('id', project.id);
 
     try {
