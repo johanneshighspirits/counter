@@ -11,9 +11,6 @@ export const useOnAppFocus = (onAppFocus: () => void, maxStaleMs = 5_000) => {
     lastActiveRef.current = Date.now();
 
     const checkStale = (e?: Event) => {
-      if (e?.type === 'pageshow') {
-        window.alert('pageshow!');
-      }
       const now = Date.now();
       if (now - lastActiveRef.current > maxStaleMs) {
         onAppFocus();
