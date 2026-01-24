@@ -1,7 +1,6 @@
 import type { Viewport, Metadata } from 'next';
 import { Bebas_Neue, Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-import Head from 'next/head';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -39,9 +38,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <Head>
-        <link rel="apple-touch-icon" href="/bajen-bg.png" />
-      </Head>
       <body
         className={[
           geistSans.variable,
