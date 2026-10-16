@@ -1,32 +1,49 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import {
+  createContext,
+  PropsWithChildren,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
+import { useOnAppFocus } from './RefreshOnFocus';
 import { getSupabaseClient } from '@/lib/supabase';
-import type { RealtimeChannel } from '@supabase/supabase-js';
-import { CircularCounter } from '@/components/CircularCounter';
-import { useOnAppFocus } from '@/components/RefreshOnFocus';
-import Image from 'next/image';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
-interface CounterData {
+export type CounterData = {
   id: number;
   count: number;
   max_count: number;
   tickets_sold: number;
-}
+};
 
-export function Counter({
+type CounterContextType = {
+  count: number;
+  maxCount: number;
+  ticketsSold: number;
+  incrementCount: () => Promise<void>;
+  decrementCount: () => Promise<void>;
+  buyTickets: (nrOfTickets: number) => Promise<void>;
+  error: string | null;
+};
+
+const CounterContext = createContext<CounterContextType | undefined>(undefined);
+
+export const CounterProvider = ({
   projectId,
   projectName,
   initialCount,
   initialMaxCount,
   initialTicketsSold,
-}: {
+  children,
+}: PropsWithChildren<{
   projectId: number;
   projectName: string;
   initialCount: number;
   initialMaxCount: number;
   initialTicketsSold: number;
-}) {
+}>) => {
   const [count, setCount] = useState<number>(initialCount);
   const [maxCount, setMaxCount] = useState<number>(initialMaxCount);
   const [ticketsSold, setTicketsSold] = useState<number>(initialTicketsSold);
@@ -95,28 +112,19 @@ export function Counter({
     };
   }, [projectId]);
 
-  useEffect(() => {
-    if (projectName) {
-      globalThis.document.title = `(${count}) ${projectName}`;
-    }
-  }, [projectName, count]);
-
   // Increment counter
   const incrementCount = async () => {
     try {
       const supabase = getSupabaseClient();
       const previousCount = count;
       const newCount = (count ?? 0) + 1;
-      const previousTicketsSold = ticketsSold;
-      const newTicketsSold = (previousTicketsSold ?? 0) + 1;
 
       // Optimistic update
       setCount(newCount);
-      setTicketsSold(newTicketsSold);
       setError(null);
 
-      const { error: updateError } = await supabase.rpc('update_counter', {
-        p_counter_id: 1,
+      const { error: updateError } = await supabase.rpc('update_occupancy', {
+        p_counter_id: projectId,
         p_delta: 1,
         p_source: 'main-door',
       });
@@ -124,7 +132,6 @@ export function Counter({
       if (updateError) {
         // Revert on error
         setCount(previousCount);
-        setTicketsSold(previousTicketsSold);
         setError('Failed to increment counter');
         console.error('Update error:', updateError);
       }
@@ -147,8 +154,8 @@ export function Counter({
       setCount(newCount);
       setError(null);
 
-      const { error: updateError } = await supabase.rpc('update_counter', {
-        p_counter_id: 1,
+      const { error: updateError } = await supabase.rpc('update_occupancy', {
+        p_counter_id: projectId,
         p_delta: -1,
         p_source: 'main-door',
       });
@@ -165,44 +172,58 @@ export function Counter({
     }
   };
 
+  const buyTickets = async (numberOfTickets: number) => {
+    try {
+      const supabase = getSupabaseClient();
+      const previousTicketsSold = ticketsSold;
+      const newTicketsSold = Math.max(
+        0,
+        (previousTicketsSold ?? 0) + numberOfTickets,
+      );
+
+      // Optimistic update
+      setTicketsSold(newTicketsSold);
+      setError(null);
+
+      const { error: updateError } = await supabase.rpc(
+        'update_tickets_sold',
+        {
+          p_counter_id: projectId,
+          p_delta: numberOfTickets,
+          p_source: 'ticket_office',
+        },
+      );
+
+      if (updateError) {
+        // Revert on error
+        setTicketsSold(previousTicketsSold);
+        setError('Failed to update ticket counter');
+        console.error('Update error:', updateError);
+      }
+    } catch (err) {
+      setError('Failed to update ticket counter');
+      console.error('Error updating tickets counter:', err);
+    }
+  };
+
+  const value = {
+    count,
+    incrementCount,
+    decrementCount,
+    maxCount,
+    buyTickets,
+    ticketsSold,
+    error,
+  };
   return (
-    <div className="text-center px-4 flex flex-col gap-4">
-      {/* Error Message */}
-      {error && (
-        <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-          {error}
-        </div>
-      )}
-
-      {/* Counter Display */}
-      <CircularCounter count={count} maxCount={maxCount} />
-
-      {/* Buttons */}
-      <div className="flex gap-6 justify-center">
-        {/* Decrement Button */}
-        <button
-          onClick={decrementCount}
-          disabled={count === null || count <= 0}
-          className="cursor-pointer size-20 bg-red-500 hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-4xl font-bold rounded-full aspect-square transition-colors duration-200 shadow-lg hover:shadow-xl active:scale-95 transform"
-          aria-label="Decrement visitor count">
-          −
-        </button>
-
-        {/* Increment Button */}
-        <button
-          onClick={incrementCount}
-          className="cursor-pointer size-20 bg-green-500 hover:bg-green-600 text-white text-4xl font-bold rounded-full aspect-square transition-colors duration-200 shadow-lg hover:shadow-xl active:scale-95 transform"
-          aria-label="Increment visitor count">
-          +
-        </button>
-      </div>
-
-      <p>
-        <span className="text-slate-400">Sålda biljetter: </span>
-        <span className="font-mono font-bold">{ticketsSold}</span>
-      </p>
-      {/* Info Text */}
-      <p className="text-gray-600 text-sm mt-8">Enheter är synkade i realtid</p>
-    </div>
+    <CounterContext.Provider value={value}>{children}</CounterContext.Provider>
   );
-}
+};
+
+export const useCounter = () => {
+  const ctx = useContext(CounterContext);
+  if (!ctx) {
+    throw new Error('useCounter must be used in a CounterProvider');
+  }
+  return ctx;
+};

@@ -109,6 +109,28 @@ The counter updates are handled client-side:
 - Client sends update to Supabase
 - Database and all subscribers get updated instantly
 
+### Database Functions
+
+Occupancy (people inside) and tickets sold are tracked separately. Every change is written to `event_counter_log`, tagged with an `event_type` of `occupancy` or `tickets`:
+
+```sql
+-- Person enters venue
+select update_occupancy(project_id, 1, 'door');
+
+-- Person leaves venue
+select update_occupancy(project_id, -1, 'door');
+
+-- Tickets sold (negative delta for refunds)
+select update_tickets_sold(project_id, 1, 'cashier');
+```
+
+Both functions clamp their value at 0.
+
+### Pages
+
+- **`/[projectSlug]/counter`**: door counter with +/− buttons for occupancy
+- **`/[projectSlug]/tickets`**: ticket sales, with buttons for selling 1–4 tickets at a time
+
 ### Features
 
 - **Increment Button**: Increases the count by 1

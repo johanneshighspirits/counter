@@ -8,7 +8,7 @@
 CREATE TABLE event_counter (
   id SERIAL PRIMARY KEY,
   count INT NOT NULL DEFAULT 0,
-  column tickets_sold INT NOT NULL DEFAULT 0,
+  tickets_sold INT NOT NULL DEFAULT 0,
   max_count INT NOT NULL DEFAULT 300,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
@@ -44,11 +44,12 @@ CREATE TABLE event_counter_log (
   counter_id int NOT NULL,
   delta int NOT NULL,
   new_count int NOT NULL,
+  event_type text NOT NULL DEFAULT 'occupancy',
   source text,
   created_at timestamptz NOT NULL DEFAULT NOW()
 );
 
-create or replace function update_counter(
+create or replace function update_occupancy(
   p_counter_id int,
   p_delta int,
   p_source text default null
@@ -60,15 +61,16 @@ declare
   v_new_count int;
 begin
   update event_counter
-  set
-    count = count + p_delta,
-    tickets_sold = tickets_sold + case when p_delta > 0 then p_delta else 0 end
+  set count = count + p_delta
   where id = p_counter_id
   returning count into v_new_count;
 
   -- Clamp occupancy to 0
   if v_new_count < 0 then
-    update event_counter set count = 0 where id = p_counter_id;
+    update event_counter
+    set count = 0
+    where id = p_counter_id;
+
     v_new_count := 0;
   end if;
 
@@ -76,12 +78,14 @@ begin
     counter_id,
     delta,
     new_count,
+    event_type,
     source
   )
   values (
     p_counter_id,
     p_delta,
     v_new_count,
+    'occupancy',
     p_source
   );
 
@@ -89,6 +93,52 @@ begin
 end;
 $$;
 
+-- Tickets sold
+
+create or replace function update_tickets_sold(
+  p_counter_id int,
+  p_delta int,
+  p_source text default null
+)
+returns int
+language plpgsql
+as $$
+declare
+  v_new_total int;
+begin
+  update event_counter
+  set tickets_sold = tickets_sold + p_delta
+  where id = p_counter_id
+  returning tickets_sold into v_new_total;
+
+  -- Clamp tickets_sold to 0 (refund safety)
+  if v_new_total < 0 then
+    update event_counter
+    set tickets_sold = 0
+    where id = p_counter_id;
+
+    v_new_total := 0;
+  end if;
+
+  -- Log ticket events (delta = tickets change, new_count = tickets_sold)
+  insert into event_counter_log (
+    counter_id,
+    delta,
+    new_count,
+    event_type,
+    source
+  )
+  values (
+    p_counter_id,
+    p_delta,
+    v_new_total,
+    'tickets',
+    coalesce(p_source, 'ticket_office')
+  );
+
+  return v_new_total;
+end;
+$$;
 
 --- Projects
 
@@ -116,7 +166,9 @@ with bounds as (
     date_trunc('minute', min(created_at)) as start_minute,
     date_trunc('minute', max(created_at)) as end_minute
   from event_counter_log
-  where created_at >= now() - interval '6 hours'
+  where
+    event_type = 'occupancy'
+    and created_at >= now() - interval '6 hours'
 ),
 
 minutes as (
@@ -135,7 +187,9 @@ per_minute_events as (
     sum(delta) filter (where delta > 0) as entries,
     abs(sum(delta)) filter (where delta < 0) as exits
   from event_counter_log
-  where created_at >= now() - interval '6 hours'
+  where
+    event_type = 'occupancy'
+    and created_at >= now() - interval '6 hours'
   group by 1
 ),
 
@@ -152,7 +206,8 @@ occupancy as (
       select e.new_count
       from event_counter_log e
       where
-        e.created_at < m.minute + interval '1 minute'
+        e.event_type = 'occupancy'
+        and e.created_at < m.minute + interval '1 minute'
         and e.created_at >= now() - interval '6 hours'
       order by e.created_at desc
       limit 1

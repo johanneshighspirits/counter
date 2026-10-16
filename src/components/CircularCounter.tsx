@@ -2,7 +2,7 @@
 
 interface CircularCounterProps {
   count: number | null;
-  maxCount: number;
+  maxCount?: number | null;
 }
 
 const color = {
@@ -16,8 +16,18 @@ export const CircularCounter = ({ count, maxCount }: CircularCounterProps) => {
     return null;
   }
 
-  const progress = count / maxCount;
+  if (!maxCount) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-6 relative w-full aspect-square">
+        <div className="flex items-center rounded-full bg-emerald-950 aspect-square">
+          <CircleNumber display={count} />
+        </div>
+      </div>
+    );
+  }
+
   const radius = 140 - 20;
+  const progress = count / maxCount;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - progress * circumference;
   const maximumReached = count >= maxCount;
@@ -65,16 +75,32 @@ export const CircularCounter = ({ count, maxCount }: CircularCounterProps) => {
         />
       </svg>
 
-      <div className="text-center z-1 p-16">
-        <p
-          className="text-8xl font-bold font-mono"
-          style={{ width: `${maxCount.toString().length}ch` }}>
-          {count}
-        </p>
+      <CircleNumber display={count} maxCount={maxCount} />
+    </div>
+  );
+};
+
+const CircleNumber = ({
+  display,
+  maxCount,
+}: {
+  display: number;
+  maxCount?: number;
+}) => {
+  return (
+    <div className="text-center z-1 p-16">
+      <p
+        className="text-8xl font-bold font-mono"
+        style={
+          maxCount ? { width: `${maxCount.toString().length}ch` } : undefined
+        }>
+        {display}
+      </p>
+      {maxCount ? (
         <p className="text-gray-400">
           Max: <span className="font-semibold">{maxCount}</span>
         </p>
-      </div>
+      ) : null}
     </div>
   );
 };
