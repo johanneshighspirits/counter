@@ -1,10 +1,15 @@
 import { getAdminDb, getProject, getProjectRef } from '@/lib/firebase-server';
 import { NextRequest, NextResponse } from 'next/server';
+import { isAdmin, unauthorizedResponse } from '@/lib/admin-auth';
 
 export async function POST(
   request: NextRequest,
   { params }: RouteContext<'/[projectSlug]/api/counter/reset'>,
 ) {
+  if (!(await isAdmin())) {
+    return unauthorizedResponse();
+  }
+
   try {
     const { projectSlug } = await params;
     if (!(await getProject(projectSlug))) {

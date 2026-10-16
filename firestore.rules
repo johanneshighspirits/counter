@@ -1,7 +1,31 @@
 rules_version = '2';
 
+// The counter shares the (default) database in the jaybo-saver Firebase
+// project with another app. Deploying this file replaces the rules for the
+// whole database, so the other app's rules (share, users, goals, tasks) are
+// kept here unchanged.
+
 service cloud.firestore {
   match /databases/{database}/documents {
+    // --- jaybo-saver app ---
+
+    match /share/{invite=**} {
+      allow read;
+    }
+    match /users/{userId=**} {
+      allow read, write: if
+        path("/" + request.auth.uid) == userId
+    }
+    match /goals/{goalId=**} {
+        allow read, write: if
+          resource.data.users[request.auth.uid] == true
+    }
+    match /tasks/{taskId=**} {
+      allow read, write: if true
+    }
+
+    // --- Counter app ---
+
     match /projects/{projectSlug} {
       allow read: if true;
 

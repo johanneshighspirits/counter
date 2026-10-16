@@ -1,8 +1,8 @@
-import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { ResetButton } from './_components/ResetButton';
 import { MaxCountInput } from './_components/MaxCountInput';
 import { AdminLogin } from './_components/AdminLogin';
+import { isAdmin } from '@/lib/admin-auth';
 
 export default async function AdminPage(
   props: PageProps<'/[projectSlug]/admin'>,
@@ -10,11 +10,7 @@ export default async function AdminPage(
   const { projectSlug } = await props.params;
 
   // Check authentication server-side
-  const cookieStore = await cookies();
-  const authCookie = cookieStore.get('admin_authenticated');
-  const isAuthenticated = !!authCookie && authCookie.value === 'true';
-
-  if (!isAuthenticated) {
+  if (!(await isAdmin())) {
     return <AdminLogin projectSlug={projectSlug} />;
   }
 

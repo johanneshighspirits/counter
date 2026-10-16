@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ADMIN_COOKIE_NAME, getAdminCookieValue } from '@/lib/admin-auth';
 
 export async function POST(
   request: NextRequest,
@@ -7,8 +8,9 @@ export async function POST(
   try {
     const { password } = await request.json();
     const adminPassword = process.env.ADMIN_PASSWORD;
+    const cookieValue = getAdminCookieValue();
 
-    if (!adminPassword) {
+    if (!adminPassword || !cookieValue) {
       return NextResponse.json(
         { error: 'Admin password not configured' },
         { status: 500 },
@@ -20,8 +22,8 @@ export async function POST(
       const response = NextResponse.json({ success: true }, { status: 200 });
 
       response.cookies.set({
-        name: 'admin_authenticated',
-        value: 'true',
+        name: ADMIN_COOKIE_NAME,
+        value: cookieValue,
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
