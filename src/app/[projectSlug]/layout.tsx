@@ -1,6 +1,6 @@
 import { CounterProvider } from '@/components/CounterProvider';
-import { getProjectScopedServerClient } from '@/lib/supabase-server';
-import { notFound, redirect } from 'next/navigation';
+import { getProject } from '@/lib/firebase-server';
+import { notFound } from 'next/navigation';
 import { PropsWithChildren } from 'react';
 
 export default async function ProjectLayout({
@@ -8,31 +8,19 @@ export default async function ProjectLayout({
   children,
 }: PropsWithChildren<{ params: Promise<{ projectSlug: string }> }>) {
   const { projectSlug } = await params;
-  const { supabase, project } = await getProjectScopedServerClient(projectSlug);
   // Fetch initial count and config
-  const { data, error: fetchError } = await supabase
-    .from('event_counter')
-    .select('count, max_count, tickets_sold')
-    .eq('id', project.id)
-    .single();
+  const project = await getProject(projectSlug);
 
-  if (fetchError) {
-    console.error('Fetch error:', fetchError);
+  if (!project) {
     notFound();
-  }
-
-  if (!data) {
-    console.error('No data');
-    redirect('/');
   }
 
   return (
     <CounterProvider
-      projectId={project.id}
-      projectName={project.name}
-      initialCount={data.count}
-      initialMaxCount={data.max_count}
-      initialTicketsSold={data.tickets_sold}>
+      projectSlug={project.slug}
+      initialCount={project.count}
+      initialMaxCount={project.maxCount}
+      initialTicketsSold={project.ticketsSold}>
       <main className="flex flex-col items-center justify-center min-h-dvh bg-linear-to-tr from-black to-green-950">
         {children}
         <p className="text-gray-600 text-sm mb-8 mt-auto">

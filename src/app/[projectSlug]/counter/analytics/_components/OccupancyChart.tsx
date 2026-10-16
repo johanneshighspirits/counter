@@ -1,6 +1,7 @@
 'use client';
 
 import { CustomTooltip } from '@/components/CustomTooltip';
+import type { OccupancyByMinute } from '@/lib/firebase-server';
 import {
   LineChart,
   Line,
@@ -19,7 +20,7 @@ export type OccupancyDataPoint = {
   people_inside: number;
 };
 
-export const OccupancyChart = ({ data }: { data: OccupancyDataPoint[] }) => {
+export const OccupancyChart = ({ data }: { data: OccupancyByMinute[] }) => {
   // Format timestamps nicely
   const formatted = data.reduce(
     (acc, { minute, entries, exits, ...rest }, i) => {

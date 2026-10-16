@@ -1,4 +1,4 @@
-import { getProjectScopedServerClient } from '@/lib/supabase-server';
+import { getAdminDb, getProject, getProjectRef } from '@/lib/firebase-server';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(
@@ -7,37 +7,20 @@ export async function POST(
 ) {
   try {
     const { projectSlug } = await params;
-    const { supabase, project } =
-      await getProjectScopedServerClient(projectSlug);
-
-    // Reset counter and ticketsSold to 0
-    const { error: updateError } = await supabase
-      .from('event_counter')
-      .update({ count: 0, tickets_sold: 0 })
-      .eq('id', project.id);
-
-    try {
-      const { error } = await supabase
-        .from('event_counter_log')
-        .delete()
-        .eq('counter_id', project.id);
-
-      if (error) {
-        throw error;
-      }
-    } catch (error) {
-      console.error('Could not truncate event_counter_log');
-      console.error(error);
+    if (!(await getProject(projectSlug))) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    if (updateError) {
-      return NextResponse.json(
-        {
-          error: 'Failed to reset counter',
-          details: updateError.message,
-        },
-        { status: 400 },
-      );
+    const projectRef = getProjectRef(projectSlug);
+
+    // Reset counter and ticketsSold to 0
+    await projectRef.update({ count: 0, ticketsSold: 0 });
+
+    try {
+      await getAdminDb().recursiveDelete(projectRef.collection('log'));
+    } catch (error) {
+      console.error('Could not clear counter log');
+      console.error(error);
     }
 
     return NextResponse.json(

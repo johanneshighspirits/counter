@@ -1,21 +1,19 @@
-import { getProjectScopedServerClient } from '@/lib/supabase-server';
-import {
-  OccupancyDataPoint,
-  OccupancyChart,
-} from './_components/OccupancyChart';
+import { getOccupancyByMinute, getProject } from '@/lib/firebase-server';
+import { OccupancyChart } from './_components/OccupancyChart';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 
 export default async function ChartsPage(
   props: PageProps<'/[projectSlug]/counter/analytics'>,
 ) {
   const { projectSlug } = await props.params;
 
-  const { supabase, project } = await getProjectScopedServerClient(projectSlug);
-  const { data } = await supabase.rpc('get_occupancy_by_minute');
-  const ticketsSold = data.reduce(
-    (sum: number, minute: OccupancyDataPoint) => sum + minute.entries,
-    0,
-  );
+  const project = await getProject(projectSlug);
+  if (!project) {
+    notFound();
+  }
+
+  const data = await getOccupancyByMinute(projectSlug);
 
   return (
     <div className="flex flex-col gap-4 p-8">
@@ -26,7 +24,7 @@ export default async function ChartsPage(
       <div className="flex flex-col gap-4 px-8">
         <div className="flex gap-4 items-center">
           <div className="bg-green-700 text-white text-center text-4xl font-mono grid place-items-center rounded-full aspect-square size-20">
-            {ticketsSold}
+            {project.ticketsSold}
           </div>
           <span>Sålda biljetter</span>
         </div>

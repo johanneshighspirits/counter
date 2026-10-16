@@ -1,4 +1,4 @@
-import { getProjectScopedServerClient } from '@/lib/supabase-server';
+import { getProject, getProjectRef } from '@/lib/firebase-server';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(
@@ -18,24 +18,12 @@ export async function POST(
       );
     }
 
-    const { supabase, project } =
-      await getProjectScopedServerClient(projectSlug);
-
-    // Update max_count
-    const { error: updateError } = await supabase
-      .from('event_counter')
-      .update({ max_count: maxCount })
-      .eq('id', project.id);
-
-    if (updateError) {
-      return NextResponse.json(
-        {
-          error: 'Failed to update max count',
-          details: updateError.message,
-        },
-        { status: 400 },
-      );
+    if (!(await getProject(projectSlug))) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
+
+    // Update maxCount
+    await getProjectRef(projectSlug).update({ maxCount });
 
     return NextResponse.json(
       {

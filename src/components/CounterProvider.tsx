@@ -7,15 +7,15 @@ import {
   useEffect,
   useState,
 } from 'react';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { useOnAppFocus } from './RefreshOnFocus';
-import { getSupabaseClient } from '@/lib/supabase';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import { getDb, updateCounter } from '@/lib/firebase';
 
 export type CounterData = {
-  id: number;
+  name: string;
   count: number;
-  max_count: number;
-  tickets_sold: number;
+  maxCount: number;
+  ticketsSold: number;
 };
 
 type CounterContextType = {
@@ -31,15 +31,13 @@ type CounterContextType = {
 const CounterContext = createContext<CounterContextType | undefined>(undefined);
 
 export const CounterProvider = ({
-  projectId,
-  projectName,
+  projectSlug,
   initialCount,
   initialMaxCount,
   initialTicketsSold,
   children,
 }: PropsWithChildren<{
-  projectId: number;
-  projectName: string;
+  projectSlug: string;
   initialCount: number;
   initialMaxCount: number;
   initialTicketsSold: number;
@@ -50,92 +48,43 @@ export const CounterProvider = ({
 
   const [error, setError] = useState<string | null>(null);
 
-  useOnAppFocus(async () => {
-    const supabase = getSupabaseClient();
-    const { data } = await supabase
-      .from('event_counter')
-      .select('*')
-      .eq('id', projectId)
-      .single();
-
+  const applyData = (data: CounterData | undefined) => {
     if (data) {
       setCount(data.count);
-      setMaxCount(data.max_count);
-      setTicketsSold(data.tickets_sold);
+      setMaxCount(data.maxCount);
+      setTicketsSold(data.ticketsSold);
     }
+  };
+
+  useOnAppFocus(async () => {
+    const snapshot = await getDoc(doc(getDb(), 'projects', projectSlug));
+    applyData(snapshot.data() as CounterData | undefined);
   }, 5_000);
-  // Fetch initial count and subscribe to real-time updates
+
+  // Subscribe to real-time updates
   useEffect(() => {
-    const supabase = getSupabaseClient();
-    let subscription: RealtimeChannel | null = null;
-
-    const initializeCounter = async () => {
-      if (projectId == null) {
-        return;
-      }
-      try {
-        setError(null);
-        // Subscribe to real-time updates
-        subscription = supabase
-          .channel('event_counter_channel')
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'event_counter',
-              filter: `id=eq.${projectId}`,
-            },
-            (payload) => {
-              if (payload.new && typeof payload.new === 'object') {
-                const newData = payload.new as CounterData;
-                setCount(newData.count);
-                setMaxCount(newData.max_count);
-                setTicketsSold(newData.tickets_sold);
-              }
-            },
-          )
-          .subscribe();
-      } catch (err) {
-        console.error('Error initializing counter:', err);
+    return onSnapshot(
+      doc(getDb(), 'projects', projectSlug),
+      (snapshot) => applyData(snapshot.data() as CounterData | undefined),
+      (err) => {
+        console.error('Error subscribing to counter:', err);
         setError('An error occurred');
-      }
-    };
-
-    initializeCounter();
-
-    // Cleanup subscription on unmount
-    return () => {
-      if (subscription) {
-        supabase.removeChannel(subscription);
-      }
-    };
-  }, [projectId]);
+      },
+    );
+  }, [projectSlug]);
 
   // Increment counter
   const incrementCount = async () => {
+    const previousCount = count;
     try {
-      const supabase = getSupabaseClient();
-      const previousCount = count;
-      const newCount = (count ?? 0) + 1;
-
       // Optimistic update
-      setCount(newCount);
+      setCount((count ?? 0) + 1);
       setError(null);
 
-      const { error: updateError } = await supabase.rpc('update_occupancy', {
-        p_counter_id: projectId,
-        p_delta: 1,
-        p_source: 'main-door',
-      });
-
-      if (updateError) {
-        // Revert on error
-        setCount(previousCount);
-        setError('Failed to increment counter');
-        console.error('Update error:', updateError);
-      }
+      await updateCounter(projectSlug, 'occupancy', 1, 'main-door');
     } catch (err) {
+      // Revert on error
+      setCount(previousCount);
       setError('Failed to increment counter');
       console.error('Error incrementing counter:', err);
     }
@@ -145,62 +94,37 @@ export const CounterProvider = ({
   const decrementCount = async () => {
     if (count === null || count <= 0) return;
 
+    const previousCount = count;
     try {
-      const supabase = getSupabaseClient();
-      const previousCount = count;
-      const newCount = Math.max(0, (count ?? 0) - 1);
-
       // Optimistic update
-      setCount(newCount);
+      setCount(Math.max(0, (count ?? 0) - 1));
       setError(null);
 
-      const { error: updateError } = await supabase.rpc('update_occupancy', {
-        p_counter_id: projectId,
-        p_delta: -1,
-        p_source: 'main-door',
-      });
-
-      if (updateError) {
-        // Revert on error
-        setCount(previousCount);
-        setError('Failed to decrement counter');
-        console.error('Update error:', updateError);
-      }
+      await updateCounter(projectSlug, 'occupancy', -1, 'main-door');
     } catch (err) {
+      // Revert on error
+      setCount(previousCount);
       setError('Failed to decrement counter');
       console.error('Error decrementing counter:', err);
     }
   };
 
   const buyTickets = async (numberOfTickets: number) => {
+    const previousTicketsSold = ticketsSold;
     try {
-      const supabase = getSupabaseClient();
-      const previousTicketsSold = ticketsSold;
-      const newTicketsSold = Math.max(
-        0,
-        (previousTicketsSold ?? 0) + numberOfTickets,
-      );
-
       // Optimistic update
-      setTicketsSold(newTicketsSold);
+      setTicketsSold(Math.max(0, (previousTicketsSold ?? 0) + numberOfTickets));
       setError(null);
 
-      const { error: updateError } = await supabase.rpc(
-        'update_tickets_sold',
-        {
-          p_counter_id: projectId,
-          p_delta: numberOfTickets,
-          p_source: 'ticket_office',
-        },
+      await updateCounter(
+        projectSlug,
+        'tickets',
+        numberOfTickets,
+        'ticket_office',
       );
-
-      if (updateError) {
-        // Revert on error
-        setTicketsSold(previousTicketsSold);
-        setError('Failed to update ticket counter');
-        console.error('Update error:', updateError);
-      }
     } catch (err) {
+      // Revert on error
+      setTicketsSold(previousTicketsSold);
       setError('Failed to update ticket counter');
       console.error('Error updating tickets counter:', err);
     }

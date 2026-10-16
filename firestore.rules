@@ -1,0 +1,29 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /projects/{projectSlug} {
+      allow read: if true;
+
+      // Door and ticket devices may only change the two counters.
+      // Creating projects, max count and resets go through firebase-admin.
+      allow update: if
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['count', 'ticketsSold'])
+        && request.resource.data.count is int
+        && request.resource.data.count >= 0
+        && request.resource.data.ticketsSold is int
+        && request.resource.data.ticketsSold >= 0;
+
+      match /log/{entryId} {
+        allow create: if
+          request.resource.data.keys()
+            .hasOnly(['type', 'delta', 'newCount', 'source', 'createdAt'])
+          && request.resource.data.type in ['occupancy', 'tickets']
+          && request.resource.data.delta is int
+          && request.resource.data.newCount is int
+          && request.resource.data.createdAt == request.time;
+      }
+    }
+  }
+}
