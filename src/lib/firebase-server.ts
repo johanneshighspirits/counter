@@ -52,11 +52,13 @@ export type OccupancyByMinute = {
   entries: number;
   exits: number;
   people_inside: number;
+  tickets_sold: number;
 };
 
 const MINUTE_MS = 60_000;
 
-// Entries, exits and people inside per minute for the last 6 hours
+// Entries and exits per minute, plus people inside and tickets sold at the
+// end of each minute, for the last 6 hours
 export async function getOccupancyByMinute(
   projectSlug: string,
 ): Promise<OccupancyByMinute[]> {
@@ -69,8 +71,9 @@ export async function getOccupancyByMinute(
 
   const events = snapshot.docs
     .map((entry) => entry.data())
-    .filter((entry) => entry.type === 'occupancy')
+    .filter((entry) => entry.createdAt)
     .map((entry) => ({
+      type: entry.type as 'occupancy' | 'tickets',
       minuteMs:
         Math.floor((entry.createdAt as Timestamp).toMillis() / MINUTE_MS) *
         MINUTE_MS,
@@ -82,9 +85,19 @@ export async function getOccupancyByMinute(
     return [];
   }
 
+  // Values just before the first event of each type in the window
+  const firstOf = (type: string) => events.find((e) => e.type === type);
+  const firstOccupancy = firstOf('occupancy');
+  const firstTickets = firstOf('tickets');
+  let peopleInside = firstOccupancy
+    ? Math.max(0, firstOccupancy.newCount - firstOccupancy.delta)
+    : 0;
+  let ticketsSold = firstTickets
+    ? Math.max(0, firstTickets.newCount - firstTickets.delta)
+    : 0;
+
   const result: OccupancyByMinute[] = [];
   let eventIndex = 0;
-  let peopleInside = 0;
 
   for (
     let minuteMs = events[0].minuteMs;
@@ -99,9 +112,13 @@ export async function getOccupancyByMinute(
       events[eventIndex].minuteMs === minuteMs
     ) {
       const event = events[eventIndex];
-      if (event.delta > 0) entries += event.delta;
-      if (event.delta < 0) exits += Math.abs(event.delta);
-      peopleInside = event.newCount;
+      if (event.type === 'occupancy') {
+        if (event.delta > 0) entries += event.delta;
+        if (event.delta < 0) exits += Math.abs(event.delta);
+        peopleInside = event.newCount;
+      } else {
+        ticketsSold = event.newCount;
+      }
       eventIndex++;
     }
 
@@ -110,6 +127,7 @@ export async function getOccupancyByMinute(
       entries,
       exits,
       people_inside: peopleInside,
+      tickets_sold: ticketsSold,
     });
   }
 

@@ -95,7 +95,8 @@ counter/
 │   ├── app/
 │   │   ├── [projectSlug]/
 │   │   │   ├── layout.tsx    # Loads the project and provides counter state
-│   │   │   ├── counter/      # Door counter and analytics
+│   │   │   ├── counter/      # Door counter
+│   │   │   ├── stats/        # Occupancy chart and totals
 │   │   │   ├── tickets/      # Ticket sales
 │   │   │   ├── admin/        # Reset and max count
 │   │   │   └── api/          # Admin API routes
@@ -129,7 +130,7 @@ The security rules only let browsers change `count` and `ticketsSold` and add lo
 ### Pages
 
 - **`/[projectSlug]/counter`**: door counter with +/− buttons for occupancy
-- **`/[projectSlug]/counter/analytics`**: entries, exits and people inside per minute for the last 6 hours
+- **`/[projectSlug]/stats`**: entries, exits and people inside per minute for the last 6 hours
 - **`/[projectSlug]/tickets`**: ticket sales, with buttons for selling 1–4 tickets at a time
 - **`/[projectSlug]/admin`**: reset the counters and set the max count
 

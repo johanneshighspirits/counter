@@ -10,8 +10,8 @@ export default function Home() {
           <Link className="hover:underline" href="/team17/counter">
             Räknare
           </Link>
-          <Link className="hover:underline" href="/team17/menu">
-            Prislista
+          <Link className="hover:underline" href="/team17/tickets">
+            Biljetter
           </Link>
         </div>
         <Image

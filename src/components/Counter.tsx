@@ -29,6 +29,8 @@ export function Counter({ projectName }: { projectName: string }) {
         </div>
       )}
 
+      <h1 className="text-center text-xl text-slate-400">Nuvarande besökare</h1>
+
       {/* Counter Display */}
       <CircularCounter count={count} maxCount={maxCount} />
 

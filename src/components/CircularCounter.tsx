@@ -16,12 +16,17 @@ export const CircularCounter = ({ count, maxCount }: CircularCounterProps) => {
     return null;
   }
 
+  // Without a max there is no progress ring, just the number in a circle
   if (!maxCount) {
     return (
-      <div className="flex flex-col items-center justify-center gap-6 relative w-full aspect-square">
-        <div className="flex items-center rounded-full bg-emerald-950 aspect-square">
-          <CircleNumber display={count} />
-        </div>
+      <div className="grid place-items-center size-52 mx-auto rounded-full bg-emerald-950 shadow-lg">
+        <p
+          className={[
+            'font-bold font-mono tabular-nums leading-none',
+            count >= 1000 ? 'text-6xl' : 'text-8xl',
+          ].join(' ')}>
+          {count}
+        </p>
       </div>
     );
   }
@@ -85,22 +90,18 @@ const CircleNumber = ({
   maxCount,
 }: {
   display: number;
-  maxCount?: number;
+  maxCount: number;
 }) => {
   return (
     <div className="text-center z-1 p-16">
       <p
         className="text-8xl font-bold font-mono"
-        style={
-          maxCount ? { width: `${maxCount.toString().length}ch` } : undefined
-        }>
+        style={{ width: `${maxCount.toString().length}ch` }}>
         {display}
       </p>
-      {maxCount ? (
-        <p className="text-gray-400">
-          Max: <span className="font-semibold">{maxCount}</span>
-        </p>
-      ) : null}
+      <p className="text-gray-400">
+        Max: <span className="font-semibold">{maxCount}</span>
+      </p>
     </div>
   );
 };
