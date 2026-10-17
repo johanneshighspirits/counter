@@ -19,19 +19,44 @@ const getAdminApp = () => {
 
 export const getAdminDb = () => getFirestore(getAdminApp());
 
-export type Project = {
+export type Team = {
+  slug: string;
+  name: string;
+};
+
+export type TeamEvent = {
+  teamSlug: string;
   slug: string;
   name: string;
   count: number;
   maxCount: number;
   ticketsSold: number;
+  createdAt: number | null;
 };
 
-export const getProjectRef = (projectSlug: string) =>
-  getAdminDb().collection('projects').doc(projectSlug);
+export const getTeamRef = (teamSlug: string) =>
+  getAdminDb().collection('teams').doc(teamSlug);
 
-export async function getProject(projectSlug: string): Promise<Project | null> {
-  const snapshot = await getProjectRef(projectSlug).get();
+export const getEventRef = (teamSlug: string, eventSlug: string) =>
+  getTeamRef(teamSlug).collection('events').doc(eventSlug);
+
+export async function getTeam(teamSlug: string): Promise<Team | null> {
+  const snapshot = await getTeamRef(teamSlug).get();
+  const data = snapshot.data();
+  return data ? { slug: snapshot.id, name: data.name } : null;
+}
+
+export async function getTeams(): Promise<Team[]> {
+  const snapshot = await getAdminDb().collection('teams').get();
+  return snapshot.docs
+    .map((team) => ({ slug: team.id, name: team.get('name') as string }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'sv'));
+}
+
+const toTeamEvent = (
+  teamSlug: string,
+  snapshot: FirebaseFirestore.DocumentSnapshot,
+): TeamEvent | null => {
   const data = snapshot.data();
 
   if (!data) {
@@ -39,12 +64,29 @@ export async function getProject(projectSlug: string): Promise<Project | null> {
   }
 
   return {
+    teamSlug,
     slug: snapshot.id,
     name: data.name,
     count: data.count ?? 0,
     maxCount: data.maxCount ?? 0,
     ticketsSold: data.ticketsSold ?? 0,
+    createdAt: (data.createdAt as Timestamp | undefined)?.toMillis() ?? null,
   };
+};
+
+export async function getEvent(
+  teamSlug: string,
+  eventSlug: string,
+): Promise<TeamEvent | null> {
+  return toTeamEvent(teamSlug, await getEventRef(teamSlug, eventSlug).get());
+}
+
+// Newest first
+export async function getTeamEvents(teamSlug: string): Promise<TeamEvent[]> {
+  const snapshot = await getTeamRef(teamSlug).collection('events').get();
+  return snapshot.docs
+    .map((event) => toTeamEvent(teamSlug, event)!)
+    .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 }
 
 export type OccupancyByMinute = {
@@ -60,10 +102,11 @@ const MINUTE_MS = 60_000;
 // Entries and exits per minute, plus people inside and tickets sold at the
 // end of each minute, for the last 6 hours
 export async function getOccupancyByMinute(
-  projectSlug: string,
+  teamSlug: string,
+  eventSlug: string,
 ): Promise<OccupancyByMinute[]> {
   const since = Timestamp.fromMillis(Date.now() - 6 * 60 * MINUTE_MS);
-  const snapshot = await getProjectRef(projectSlug)
+  const snapshot = await getEventRef(teamSlug, eventSlug)
     .collection('log')
     .where('createdAt', '>=', since)
     .orderBy('createdAt')

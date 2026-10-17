@@ -51,25 +51,26 @@ const fieldByEventType = {
 
 // Atomically change a counter (clamped to 0) and write a log entry
 export async function updateCounter(
-  projectSlug: string,
+  teamSlug: string,
+  eventSlug: string,
   eventType: LogEventType,
   delta: number,
   source: string,
 ): Promise<number> {
   const db = getDb();
-  const projectRef = doc(db, 'projects', projectSlug);
+  const eventRef = doc(db, 'teams', teamSlug, 'events', eventSlug);
   const field = fieldByEventType[eventType];
 
   return runTransaction(db, async (transaction) => {
-    const snapshot = await transaction.get(projectRef);
+    const snapshot = await transaction.get(eventRef);
     if (!snapshot.exists()) {
-      throw new Error('Project not found');
+      throw new Error('Event not found');
     }
 
     const newValue = Math.max(0, (snapshot.get(field) ?? 0) + delta);
 
-    transaction.update(projectRef, { [field]: newValue });
-    transaction.set(doc(collection(projectRef, 'log')), {
+    transaction.update(eventRef, { [field]: newValue });
+    transaction.set(doc(collection(eventRef, 'log')), {
       type: eventType,
       delta,
       newCount: newValue,

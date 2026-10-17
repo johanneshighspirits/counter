@@ -1,17 +1,17 @@
-import { getProject, getProjectRef } from '@/lib/firebase-server';
+import { getEvent, getEventRef } from '@/lib/firebase-server';
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdmin, unauthorizedResponse } from '@/lib/admin-auth';
 
 export async function POST(
   request: NextRequest,
-  { params }: RouteContext<'/[projectSlug]/api/counter/max-count'>,
+  { params }: RouteContext<'/[teamSlug]/[eventSlug]/api/counter/max-count'>,
 ) {
-  if (!(await isAdmin())) {
+  const { teamSlug, eventSlug } = await params;
+  if (!(await isAdmin(teamSlug, eventSlug))) {
     return unauthorizedResponse();
   }
 
   try {
-    const { projectSlug } = await params;
     const { maxCount } = await request.json();
 
     if (!maxCount || typeof maxCount !== 'number' || maxCount < 1) {
@@ -23,12 +23,12 @@ export async function POST(
       );
     }
 
-    if (!(await getProject(projectSlug))) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    if (!(await getEvent(teamSlug, eventSlug))) {
+      return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
     // Update maxCount
-    await getProjectRef(projectSlug).update({ maxCount });
+    await getEventRef(teamSlug, eventSlug).update({ maxCount });
 
     return NextResponse.json(
       {

@@ -51,12 +51,20 @@ ADMIN_PASSWORD=your_admin_password
 
 `FIREBASE_SERVICE_ACCOUNT_KEY` is the whole service account JSON file on one line.
 
-### 4. Create a Project
+### 4. Create an Event
 
-Each event project is a document in the `projects` collection, addressed by its URL slug:
+Open the start page (`/`), enter the team, the event name and an admin PIN, and you get a link like `/team17/skridskodisco`. Teams are created on the fly: the team slug is the name with only letters and digits (`Team 17` → `team17`), so the same team is found however it's typed.
+
+Events can also be created from the command line (these have no PIN, so only `ADMIN_PASSWORD` unlocks their admin page):
 
 ```bash
-node --env-file=.env.local scripts/create-project.mjs team17 "Team 17"
+node --env-file=.env.local scripts/create-event.mjs team17 "Team 17" skridskodisco "Skridskodisco"
+```
+
+To move an event from the old single-level `projects/{slug}` model, with its log and PIN:
+
+```bash
+node --env-file=.env.local scripts/migrate-project.mjs team17 team17 "Team 17" skridskodisco "Skridskodisco"
 ```
 
 ### 5. Install Dependencies
@@ -93,8 +101,10 @@ For deployment to Vercel or other platforms:
 counter/
 ├── src/
 │   ├── app/
-│   │   ├── [projectSlug]/
-│   │   │   ├── layout.tsx    # Loads the project and provides counter state
+│   │   ├── [teamSlug]/
+│   │   │   ├── page.tsx      # Team page listing its events
+│   │   │   └── [eventSlug]/
+│   │   │       ├── layout.tsx  # Loads the event and provides counter state
 │   │   │   ├── counter/      # Door counter
 │   │   │   ├── stats/        # Occupancy chart and totals
 │   │   │   ├── tickets/      # Ticket sales
@@ -105,7 +115,8 @@ counter/
 │   └── lib/
 │       ├── firebase.ts         # Browser Firestore client and counter updates
 │       └── firebase-server.ts  # firebase-admin for server code
-├── scripts/create-project.mjs  # Create a project document
+├── scripts/create-event.mjs    # Create a team and event
+├── scripts/migrate-project.mjs # Move an old projects/{slug} to a team event
 ├── firestore.rules             # Firestore security rules
 └── firebase.json               # Firebase CLI config
 ```
@@ -114,25 +125,30 @@ counter/
 
 ### Data Model
 
-- `projects/{slug}`: `name`, `count` (people inside), `maxCount` and `ticketsSold`
-- `projects/{slug}/log/{id}`: one entry per change, with `type` (`occupancy` or `tickets`), `delta`, `newCount`, `source` and `createdAt`
+- `teams/{team}`: `name`
+- `teams/{team}/events/{event}`: `name`, `count` (people inside), `maxCount`, `ticketsSold` and `createdAt`
+- `teams/{team}/events/{event}/private/pin`: `pinHash` (scrypt, `salt:hash`), `failedAttempts`, `lockedUntil`. Browsers can't read it; the event itself is readable by everyone
+- `teams/{team}/events/{event}/log/{id}`: one entry per change, with `type` (`occupancy` or `tickets`), `delta`, `newCount`, `source` and `createdAt`
 
 ### Real-time Sync
 
-Every device listens to its project document with `onSnapshot`, so a change from one device shows up on all of them right away.
+Every device listens to its event document with `onSnapshot`, so a change from one device shows up on all of them right away.
 
 ### Atomic Updates
 
 The + / − and ticket buttons run a Firestore transaction that reads the current value, applies the change (clamped at 0), and writes the new value together with a log entry. Simultaneous clicks from several devices are retried by Firestore instead of overwriting each other.
 
-The security rules only let browsers change `count` and `ticketsSold` and add log entries. Creating projects, changing the max count and resetting go through `firebase-admin` on the server.
+The security rules only let browsers change `count` and `ticketsSold` and add log entries. Creating teams and events, changing the max count and resetting go through `firebase-admin` on the server.
 
 ### Pages
 
-- **`/[projectSlug]/counter`**: door counter with +/− buttons for occupancy
-- **`/[projectSlug]/stats`**: entries, exits and people inside per minute for the last 6 hours
-- **`/[projectSlug]/tickets`**: ticket sales, with buttons for selling 1–4 tickets at a time
-- **`/[projectSlug]/admin`**: reset the counters and set the max count
+- **`/`**: create a new event with a name and an admin PIN
+- **`/[team]`**: the team's events, newest first
+- **`/[team]/[event]`**: event home page with links to the counter, tickets and stats
+- **`/[team]/[event]/counter`**: door counter with +/− buttons for occupancy
+- **`/[team]/[event]/stats`**: entries, exits and people inside per minute for the last 6 hours
+- **`/[team]/[event]/tickets`**: ticket sales, with buttons for selling 1–4 tickets at a time
+- **`/[team]/[event]/admin`**: reset the counters and set the max count. Unlocked with the event's PIN or with `ADMIN_PASSWORD`
 
 ## Styling
 
@@ -153,7 +169,7 @@ The app uses TailwindCSS with a beautiful gradient background and responsive des
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Firebase project ID |
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | Web app ID |
 | `FIREBASE_SERVICE_ACCOUNT_KEY` | Service account JSON for `firebase-admin` (secret) |
-| `ADMIN_PASSWORD` | Password for the admin page |
+| `ADMIN_PASSWORD` | Master password for every event's admin page |
 | `NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST` | Optional, e.g. `127.0.0.1:8080`, to use the local emulator from the browser |
 | `FIRESTORE_EMULATOR_HOST` | Optional, the same for server code |
 
@@ -190,7 +206,7 @@ npm run dev
 
 ### Updates not saving?
 
-1. Check that the project document exists (see "Create a Project")
+1. Check that the event document exists (see "Create an Event")
 2. Look for `permission-denied` errors in the browser console, which mean the security rules rejected the write
 
 ## Technologies Used

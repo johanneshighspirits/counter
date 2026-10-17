@@ -26,11 +26,44 @@ service cloud.firestore {
 
     // --- Counter app ---
 
+    match /teams/{teamSlug} {
+      allow read: if true;
+
+      match /events/{eventSlug} {
+        allow read: if true;
+
+        // Door and ticket devices may only change the two counters.
+        // Creating teams and events, max count and resets go through
+        // firebase-admin.
+        allow update: if
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['count', 'ticketsSold'])
+          && request.resource.data.count is int
+          && request.resource.data.count >= 0
+          && request.resource.data.ticketsSold is int
+          && request.resource.data.ticketsSold >= 0;
+
+        match /log/{entryId} {
+          allow create: if
+            request.resource.data.keys()
+              .hasOnly(['type', 'delta', 'newCount', 'source', 'createdAt'])
+            && request.resource.data.type in ['occupancy', 'tickets']
+            && request.resource.data.delta is int
+            && request.resource.data.newCount is int
+            && request.resource.data.createdAt == request.time;
+        }
+
+        // private/pin (admin PIN hash) has no rule, so only firebase-admin
+        // on the server can read or write it.
+      }
+    }
+
+    // Legacy: the old single-level projects/{slug}. Kept so the currently
+    // deployed app keeps working until scripts/migrate-project.mjs has run
+    // and the new version is live. Remove afterwards.
     match /projects/{projectSlug} {
       allow read: if true;
 
-      // Door and ticket devices may only change the two counters.
-      // Creating projects, max count and resets go through firebase-admin.
       allow update: if
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['count', 'ticketsSold'])

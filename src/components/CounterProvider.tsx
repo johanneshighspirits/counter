@@ -31,13 +31,15 @@ type CounterContextType = {
 const CounterContext = createContext<CounterContextType | undefined>(undefined);
 
 export const CounterProvider = ({
-  projectSlug,
+  teamSlug,
+  eventSlug,
   initialCount,
   initialMaxCount,
   initialTicketsSold,
   children,
 }: PropsWithChildren<{
-  projectSlug: string;
+  teamSlug: string;
+  eventSlug: string;
   initialCount: number;
   initialMaxCount: number;
   initialTicketsSold: number;
@@ -57,21 +59,21 @@ export const CounterProvider = ({
   };
 
   useOnAppFocus(async () => {
-    const snapshot = await getDoc(doc(getDb(), 'projects', projectSlug));
+    const snapshot = await getDoc(doc(getDb(), 'teams', teamSlug, 'events', eventSlug));
     applyData(snapshot.data() as CounterData | undefined);
   }, 5_000);
 
   // Subscribe to real-time updates
   useEffect(() => {
     return onSnapshot(
-      doc(getDb(), 'projects', projectSlug),
+      doc(getDb(), 'teams', teamSlug, 'events', eventSlug),
       (snapshot) => applyData(snapshot.data() as CounterData | undefined),
       (err) => {
         console.error('Error subscribing to counter:', err);
         setError('An error occurred');
       },
     );
-  }, [projectSlug]);
+  }, [teamSlug, eventSlug]);
 
   // Increment counter
   const incrementCount = async () => {
@@ -81,7 +83,7 @@ export const CounterProvider = ({
       setCount((count ?? 0) + 1);
       setError(null);
 
-      await updateCounter(projectSlug, 'occupancy', 1, 'main-door');
+      await updateCounter(teamSlug, eventSlug, 'occupancy', 1, 'main-door');
     } catch (err) {
       // Revert on error
       setCount(previousCount);
@@ -100,7 +102,7 @@ export const CounterProvider = ({
       setCount(Math.max(0, (count ?? 0) - 1));
       setError(null);
 
-      await updateCounter(projectSlug, 'occupancy', -1, 'main-door');
+      await updateCounter(teamSlug, eventSlug, 'occupancy', -1, 'main-door');
     } catch (err) {
       // Revert on error
       setCount(previousCount);
@@ -117,7 +119,8 @@ export const CounterProvider = ({
       setError(null);
 
       await updateCounter(
-        projectSlug,
+        teamSlug,
+        eventSlug,
         'tickets',
         numberOfTickets,
         'ticket_office',

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export const AdminLogin = ({ projectSlug }: { projectSlug: string }) => {
+export const AdminLogin = ({ basePath }: { basePath: string }) => {
   const router = useRouter();
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +16,7 @@ export const AdminLogin = ({ projectSlug }: { projectSlug: string }) => {
       setError(null);
 
       const response = await fetch(
-        `/${projectSlug}/api/admin/verify-password`,
+        `${basePath}/api/admin/verify-password`,
         {
           method: 'POST',
           headers: {
@@ -27,7 +27,8 @@ export const AdminLogin = ({ projectSlug }: { projectSlug: string }) => {
       );
 
       if (!response.ok) {
-        throw new Error('Invalid password');
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error ?? 'Invalid password');
       }
 
       // Refresh the page to re-evaluate server-side auth
@@ -51,7 +52,7 @@ export const AdminLogin = ({ projectSlug }: { projectSlug: string }) => {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Enter admin password"
+          placeholder="Enter PIN or admin password"
           disabled={isLoading}
           className="border border-white bg-transparent p-3 rounded-sm text-white placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
           autoFocus

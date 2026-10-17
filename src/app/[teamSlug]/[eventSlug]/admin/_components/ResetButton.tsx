@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-export const ResetButton = ({ projectSlug }: { projectSlug: string }) => {
+export const ResetButton = ({ basePath }: { basePath: string }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -11,7 +11,7 @@ export const ResetButton = ({ projectSlug }: { projectSlug: string }) => {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch(`/${projectSlug}/api/counter/reset`, {
+      const response = await fetch(`${basePath}/api/counter/reset`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
