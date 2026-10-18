@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { inputClassName, SettingField } from './SettingField';
+import { MAX_MAX_COUNT } from '@/lib/event-limits';
 
 export const MaxCountInput = ({
   basePath,
@@ -11,7 +12,8 @@ export const MaxCountInput = ({
   initialMaxCount: number;
 }) => {
   const [maxCount, setMaxCount] = useState<string>(String(initialMaxCount));
-  const parsed = parseInt(maxCount, 10);
+  // Number, not parseInt, so "1.5" isn't quietly saved as 1
+  const parsed = Number(maxCount);
 
   return (
     <SettingField
@@ -22,9 +24,12 @@ export const MaxCountInput = ({
       value={parsed}
       isChanged={parsed !== initialMaxCount}
       validate={() =>
-        isNaN(parsed) || parsed < 1
-          ? 'Please enter a number greater than 0'
-          : null
+        maxCount.trim() &&
+        Number.isInteger(parsed) &&
+        parsed >= 1 &&
+        parsed <= MAX_MAX_COUNT
+          ? null
+          : `Please enter a whole number from 1 to ${MAX_MAX_COUNT}`
       }>
       {({ id, disabled }) => (
         <input
@@ -32,6 +37,8 @@ export const MaxCountInput = ({
           type="number"
           inputMode="numeric"
           min="1"
+          // Let validate() explain decimals, instead of the browser's tooltip
+          step="any"
           value={maxCount}
           onChange={(e) => setMaxCount(e.target.value)}
           disabled={disabled}

@@ -1,6 +1,7 @@
 import { getEvent, getEventRef } from '@/lib/firebase-server';
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdmin, unauthorizedResponse } from '@/lib/admin-auth';
+import { MAX_MAX_COUNT } from '@/lib/event-limits';
 
 export async function POST(
   request: NextRequest,
@@ -14,10 +15,14 @@ export async function POST(
   try {
     const { maxCount } = await request.json();
 
-    if (!maxCount || typeof maxCount !== 'number' || maxCount < 1) {
+    if (
+      !Number.isInteger(maxCount) ||
+      maxCount < 1 ||
+      maxCount > MAX_MAX_COUNT
+    ) {
       return NextResponse.json(
         {
-          error: 'Invalid max count value',
+          error: `Max count must be a whole number from 1 to ${MAX_MAX_COUNT}`,
         },
         { status: 400 },
       );

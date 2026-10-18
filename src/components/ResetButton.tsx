@@ -44,7 +44,6 @@ export const ResetButton = ({
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An error occurred';
       setError(message);
-      alert(`Error: ${message}`);
     } finally {
       setIsLoading(false);
     }
