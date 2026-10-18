@@ -67,12 +67,6 @@ To set or change an event's admin PIN (this also clears a lockout):
 node --env-file=.env.local scripts/set-pin.mjs team17 skridskodisco 2017
 ```
 
-To move an event from the old single-level `projects/{slug}` model, with its log and PIN:
-
-```bash
-node --env-file=.env.local scripts/migrate-project.mjs team17 team17 "Team 17" skridskodisco "Skridskodisco"
-```
-
 ### 5. Install Dependencies
 
 ```bash
@@ -123,7 +117,6 @@ counter/
 │       └── firebase-server.ts  # firebase-admin for server code
 ├── scripts/create-event.mjs    # Create a team and event
 ├── scripts/set-pin.mjs        # Set an event's admin PIN
-├── scripts/migrate-project.mjs # Move an old projects/{slug} to a team event
 ├── firestore.rules             # Firestore security rules
 └── firebase.json               # Firebase CLI config
 ```
