@@ -10,6 +10,7 @@ import { deleteApp, initializeApp, type FirebaseApp } from 'firebase/app';
 import {
   addDoc,
   collection,
+  connectFirestoreEmulator,
   doc,
   getDoc,
   getFirestore,
@@ -54,9 +55,15 @@ const newContext = async (
   return context;
 };
 
-// confirm() for resets and deletes, alert() for login errors
+// Confirms resets and deletes, and remembers alerts, which the app shouldn't
+// show: errors go in the page
+const alerts = new WeakMap<Page, string[]>();
 const acceptDialogs = (page: Page) => {
-  page.on('dialog', (dialog) => dialog.accept());
+  alerts.set(page, []);
+  page.on('dialog', (dialog) => {
+    if (dialog.type() === 'alert') alerts.get(page)!.push(dialog.message());
+    return dialog.accept();
+  });
   return page;
 };
 
@@ -182,6 +189,15 @@ test('the share dialog shows the link and QR code', async ({ baseURL }) => {
 test('unknown teams and events are 404', async ({ request }) => {
   expect((await request.get(`/${TEAM_SLUG}/no-such-event`)).status()).toBe(404);
   expect((await request.get(`/no-such-team-${runId}`)).status()).toBe(404);
+
+  // In Swedish, with a way back
+  await doorPage.goto(`/${TEAM_SLUG}/no-such-event`);
+  await expect(
+    doorPage.getByRole('heading', { name: 'Sidan finns inte' }),
+  ).toBeVisible();
+  await expect(doorPage.locator('html')).toHaveAttribute('lang', 'sv');
+  await doorPage.getByRole('link', { name: 'Till startsidan' }).click();
+  await expect(doorPage).toHaveURL('/');
 });
 
 test('the counter counts and keeps its value after a reload', async () => {
@@ -293,6 +309,38 @@ test('stats show live totals and a chart', async () => {
   await expect(tile('Nuvarande besökare')).toContainText('13');
 });
 
+test('clicks made offline are saved when the connection is back', async () => {
+  await doorPage.goto(`${EVENT_PATH}/counter`);
+  await expectCount(doorPage, 13);
+  const notice = doorPage.getByRole('status').filter({
+    hasText: 'Dålig anslutning',
+  });
+  await expect(notice).toBeHidden();
+
+  await volunteer.setOffline(true);
+  const plus = doorPage.getByRole('button', {
+    name: 'Increment visitor count',
+  });
+  await plus.click();
+  await plus.click();
+  // Counted on the device right away, with a notice that it's not sent yet
+  await expectCount(doorPage, 15);
+  await expect(notice).toBeVisible();
+  // Long enough for a transaction to have given up
+  await doorPage.waitForTimeout(8_000);
+  await expectCount(doorPage, 15);
+  await expect(doorPage.getByText('kunde inte sparas')).toHaveCount(0);
+
+  await volunteer.setOffline(false);
+  await expect(notice).toBeHidden({ timeout: 20_000 });
+
+  // Saved on the server: another device sees them
+  const otherDoor = await creator.newPage();
+  await otherDoor.goto(`${EVENT_PATH}/counter`);
+  await expectCount(otherDoor, 15);
+  await otherDoor.close();
+});
+
 test.describe('the security rules', () => {
   let app: FirebaseApp;
 
@@ -311,6 +359,12 @@ test.describe('the security rules', () => {
       },
       `e2e-${runId}`,
     );
+    // When the app under test uses the emulator, so does this
+    const emulatorHost = process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST;
+    if (emulatorHost) {
+      const [host, port] = emulatorHost.split(':');
+      connectFirestoreEmulator(getFirestore(app), host, Number(port));
+    }
   });
 
   test.afterAll(async () => {
@@ -324,7 +378,7 @@ test.describe('the security rules', () => {
       expect(write).rejects.toMatchObject({ code: 'permission-denied' });
 
     // Reading is open, so the counter pages work without a login
-    expect((await getDoc(eventRef)).get('count')).toBe(13);
+    expect((await getDoc(eventRef)).get('count')).toBe(15);
 
     await denied(updateDoc(eventRef, { count: 999 }));
     await denied(updateDoc(eventRef, { maxCount: 1 }));
@@ -332,7 +386,6 @@ test.describe('the security rules', () => {
       addDoc(collection(eventRef, 'log'), {
         type: 'occupancy',
         delta: 1,
-        newCount: 14,
         source: 'main-door',
         createdAt: serverTimestamp(),
       }),
@@ -352,6 +405,7 @@ test('the admin page needs the PIN', async () => {
   await password.fill(WRONG_PIN);
   await doorPage.getByRole('button', { name: 'Enter' }).click();
   await expect(doorPage.getByText('Wrong PIN, 2 attempts left')).toBeVisible();
+  expect(alerts.get(doorPage)).toEqual([]);
 
   await password.fill(PIN);
   await doorPage.getByRole('button', { name: 'Enter' }).click();
@@ -365,6 +419,20 @@ test('admin settings change the max count and date', async () => {
 
   const setting = (label: string) =>
     adminPage.locator('form', { has: adminPage.getByLabel(label) });
+
+  // Only whole numbers, in the form and in the API
+  await setting('Max visitors').getByLabel('Max visitors').fill('1.5');
+  await setting('Max visitors').getByRole('button', { name: 'Save' }).click();
+  await expect(
+    setting('Max visitors').getByText(/Please enter a whole number/),
+  ).toBeVisible();
+  for (const maxCount of [1.5, 1e9]) {
+    const response = await adminPage.request.post(
+      `${EVENT_PATH}/api/counter/max-count`,
+      { data: { maxCount } },
+    );
+    expect(response.status()).toBe(400);
+  }
 
   await setting('Max visitors').getByLabel('Max visitors').fill('20');
   await setting('Max visitors').getByRole('button', { name: 'Save' }).click();
@@ -393,7 +461,7 @@ test('trimming the log keeps the counters', async () => {
   await expect(adminPage.getByText('The log is empty')).toBeVisible();
 
   await doorPage.goto(`${EVENT_PATH}/counter`);
-  await expectCount(doorPage, 13);
+  await expectCount(doorPage, 15);
 });
 
 test('resetting sets both counters to 0', async () => {
@@ -432,6 +500,9 @@ test('three wrong PINs lock the admin login', async ({ browser, baseURL }) => {
 });
 
 test('deleting the event removes it and its links', async () => {
+  // A door device that still has the counter open
+  await doorPage.goto(`${EVENT_PATH}/counter`);
+
   // Logged in before the lockout, so still allowed
   await adminPage.goto(`${EVENT_PATH}/admin`);
   await adminPage.getByRole('button', { name: 'Delete event' }).click();
@@ -440,4 +511,10 @@ test('deleting the event removes it and its links', async () => {
   expect((await adminPage.request.get(EVENT_PATH)).status()).toBe(404);
   await adminPage.goto(`/${TEAM_SLUG}`);
   await expect(adminPage.getByText(runId)).toHaveCount(0);
+
+  // The open counter says why it stopped working
+  await expect(
+    doorPage.getByText('Evenemanget finns inte längre'),
+  ).toBeVisible();
+  expect(alerts.get(doorPage)).toEqual([]);
 });

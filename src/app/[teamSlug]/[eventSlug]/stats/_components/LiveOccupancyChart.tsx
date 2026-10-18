@@ -9,6 +9,7 @@ import {
   Timestamp,
   where,
 } from 'firebase/firestore';
+import { useCounter } from '@/components/CounterProvider';
 import { getDb } from '@/lib/firebase';
 import { toOccupancyByMinute, type LogEntry } from '@/lib/occupancy';
 import { OccupancyChart } from './OccupancyChart';
@@ -28,6 +29,8 @@ export const LiveOccupancyChart = ({
     () => new Map(initialLog.map((entry) => [entry.id, entry])),
   );
   const [since] = useState(() => initialLog.at(-1)?.createdAt ?? 0);
+  // The live totals the chart works back from
+  const { count, ticketsSold } = useCounter();
 
   useEffect(() => {
     const newEntries = query(
@@ -44,7 +47,11 @@ export const LiveOccupancyChart = ({
         setLog((previous) => {
           const next = new Map(previous);
           for (const change of snapshot.docChanges()) {
-            const createdAt = change.doc.get('createdAt') as Timestamp | null;
+            // This device's clicks that haven't reached the server yet have
+            // no server time, so use the estimate until they do
+            const createdAt = change.doc.get('createdAt', {
+              serverTimestamps: 'estimate',
+            }) as Timestamp | null;
             if (change.type === 'removed' || !createdAt) {
               next.delete(change.doc.id);
               continue;
@@ -53,7 +60,6 @@ export const LiveOccupancyChart = ({
               id: change.doc.id,
               type: change.doc.get('type'),
               delta: change.doc.get('delta'),
-              newCount: change.doc.get('newCount'),
               createdAt: createdAt.toMillis(),
             });
           }
@@ -69,8 +75,9 @@ export const LiveOccupancyChart = ({
     () =>
       toOccupancyByMinute(
         [...log.values()].sort((a, b) => a.createdAt - b.createdAt),
+        { count, ticketsSold },
       ),
-    [log],
+    [log, count, ticketsSold],
   );
 
   return <OccupancyChart data={data} />;

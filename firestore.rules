@@ -14,14 +14,13 @@ service cloud.firestore {
         allow read: if true;
 
         // Door and ticket devices may only change one counter at a time,
-        // together with exactly one new log entry (lastLogId). Creating teams
-        // and events, max count and resets go through firebase-admin.
+        // together with exactly one new log entry (lastLogId), whose rule
+        // checks the change is one click's worth. Creating teams and events,
+        // max count and resets go through firebase-admin.
         //
-        // Rules see the stored event, not the one a transaction read. When
-        // clicks overlap, a click's transaction may have read an older value,
-        // and Firestore must get to make it retry instead of the rules
-        // denying it. So changes are bounded loosely rather than to exactly
-        // one click.
+        // The app changes counters with increment(), which the server applies
+        // to the stored value, so clicks that overlap or were queued offline
+        // are each checked against the value they actually change.
         allow update: if
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['count', 'ticketsSold', 'lastLogId'])
@@ -29,22 +28,21 @@ service cloud.firestore {
           && !exists(/databases/$(database)/documents/teams/$(teamSlug)/events/$(eventSlug)/log/$(request.resource.data.lastLogId))
           && existsAfter(/databases/$(database)/documents/teams/$(teamSlug)/events/$(eventSlug)/log/$(request.resource.data.lastLogId))
           && isCounter(request.resource.data.count)
-          && isCounter(request.resource.data.ticketsSold)
-          && math.abs(request.resource.data.count - resource.data.get('count', 0)) <= 10
-          && math.abs(request.resource.data.ticketsSold - resource.data.get('ticketsSold', 0)) <= 40;
+          && isCounter(request.resource.data.ticketsSold);
 
         match /log/{entryId} {
           // The stats page listens for new entries
           allow read: if true;
+          // newCount is only written by older versions of the app, which
+          // may still be open on a device
           allow create: if
             request.resource.data.keys()
               .hasOnly(['type', 'delta', 'newCount', 'source', 'createdAt'])
             && request.resource.data.keys()
-              .hasAll(['type', 'delta', 'newCount', 'source', 'createdAt'])
+              .hasAll(['type', 'delta', 'source', 'createdAt'])
             && request.resource.data.source in ['main-door', 'ticket_office']
             && request.resource.data.createdAt == request.time
             && request.resource.data.delta is int
-            && request.resource.data.newCount is int
             && matchesCounterChange(
               request.resource.data,
               entryId,
@@ -62,16 +60,15 @@ service cloud.firestore {
       return value is int && value >= 0;
     }
 
-    // The entry must be the event's lastLogId in the same write and carry
-    // its counter's new value. It isn't checked against the stored value
-    // plus delta, since an overlapping click may have read an older value
-    // (see the event's update rule).
+    // The entry must be the event's lastLogId in the same write, and its
+    // delta exactly the change to its counter
     function matchesCounterChange(entry, entryId, before, after) {
       let field = entry.type == 'occupancy' ? 'count' : 'ticketsSold';
       let otherField = entry.type == 'occupancy' ? 'ticketsSold' : 'count';
       return entry.type in ['occupancy', 'tickets']
         && after.lastLogId == entryId
-        && after[field] == entry.newCount
+        && after[field] - before.get(field, 0) == entry.delta
+        && entry.get('newCount', after[field]) == after[field]
         && after.get(otherField, 0) == before.get(otherField, 0)
         && (entry.type == 'occupancy'
           ? entry.delta in [-1, 1]

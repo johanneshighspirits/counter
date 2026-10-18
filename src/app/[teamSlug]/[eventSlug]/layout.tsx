@@ -1,5 +1,6 @@
 import { BajenLogo } from '@/components/BajenLogo';
 import { BottomNav } from '@/components/BottomNav';
+import { ConnectionNotice } from '@/components/ConnectionNotice';
 import { CounterProvider } from '@/components/CounterProvider';
 import { getEvent, getEventTitle } from '@/lib/firebase-server';
 import type { Metadata } from 'next';
@@ -37,6 +38,7 @@ export default async function EventLayout({
       initialMaxCount={event.maxCount}
       initialTicketsSold={event.ticketsSold}>
       <main className="flex flex-col items-center justify-center min-h-dvh bg-linear-to-tr from-black to-green-950">
+        <ConnectionNotice />
         {children}
         <BajenLogo className="h-12 mt-auto mb-3" />
         <p className="text-gray-600 text-sm mb-8">

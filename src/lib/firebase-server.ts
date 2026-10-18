@@ -249,7 +249,6 @@ export async function getEventLog(
     id: entry.id,
     type: entry.get('type'),
     delta: entry.get('delta'),
-    newCount: entry.get('newCount'),
     createdAt: (entry.get('createdAt') as Timestamp).toMillis(),
   }));
 }

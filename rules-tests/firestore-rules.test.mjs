@@ -16,6 +16,7 @@ import {
   getDoc,
   getDocs,
   getFirestore,
+  increment,
   runTransaction,
   serverTimestamp,
   setDoc,
@@ -52,6 +53,9 @@ const [db, db2] = apps.map((app) => {
 
 const EVENT = 'teams/t/events/e';
 const eventRef = (database = db) => doc(database, EVENT);
+const fieldOf = (type) => (type === 'occupancy' ? 'count' : 'ticketsSold');
+const sourceOf = (type) =>
+  type === 'occupancy' ? 'main-door' : 'ticket_office';
 const logEntry = (fields) => ({
   type: 'occupancy',
   delta: 1,
@@ -60,32 +64,49 @@ const logEntry = (fields) => ({
   ...fields,
 });
 
-// The same transaction as updateCounter in src/lib/firebase.ts
-const updateCounter = (type, delta, { database = db, source } = {}) =>
-  runTransaction(database, async (transaction) => {
-    const ref = eventRef(database);
-    const snapshot = await transaction.get(ref);
-    const field = type === 'occupancy' ? 'count' : 'ticketsSold';
-    const newValue = Math.max(0, (snapshot.get(field) ?? 0) + delta);
-    const logRef = doc(collection(ref, 'log'));
-    transaction.update(ref, { [field]: newValue, lastLogId: logRef.id });
-    transaction.set(logRef, {
-      type,
-      delta,
-      newCount: newValue,
-      source: source ?? (type === 'occupancy' ? 'main-door' : 'ticket_office'),
-      createdAt: serverTimestamp(),
+// The same write as updateCounter in src/lib/firebase.ts
+const updateCounter = (type, delta, { database = db, source } = {}) => {
+  const ref = eventRef(database);
+  const logRef = doc(collection(ref, 'log'));
+  const batch = writeBatch(database);
+  batch.update(ref, {
+    [fieldOf(type)]: increment(delta),
+    lastLogId: logRef.id,
+  });
+  batch.set(
+    logRef,
+    logEntry({ type, delta, source: source ?? sourceOf(type) }),
+  );
+  return batch.commit();
+};
+
+// How older versions of the app clicked, which may still be open on a device
+const legacyUpdateCounter = (type, delta) =>
+  runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(eventRef());
+    const newValue = Math.max(0, (snapshot.get(fieldOf(type)) ?? 0) + delta);
+    const logRef = doc(collection(eventRef(), 'log'));
+    transaction.update(eventRef(), {
+      [fieldOf(type)]: newValue,
+      lastLogId: logRef.id,
     });
+    transaction.set(
+      logRef,
+      logEntry({ type, delta, newCount: newValue, source: sourceOf(type) }),
+    );
   });
 
 // A batch with an event update and log entries, for hand-made writes
 const commitBatch = (build) => {
   const batch = writeBatch(db);
-  build(batch);
+  build(batch, () => doc(collection(eventRef(), 'log')));
   return batch.commit();
 };
 
-const counters = async () => (await adminDb.doc(EVENT).get()).data();
+const counters = async () => {
+  const { count, ticketsSold } = (await adminDb.doc(EVENT).get()).data();
+  return { count, ticketsSold };
+};
 
 const allowed = (write) => assert.doesNotReject(write);
 const denied = (write) =>
@@ -100,7 +121,6 @@ before(async () => {
   await adminDb.doc(`${EVENT}/log/old`).set({
     type: 'occupancy',
     delta: 1,
-    newCount: 1,
     source: 'main-door',
     createdAt: new Date(),
   });
@@ -114,21 +134,18 @@ after(async () => {
 test('clicks change the counters and write a log entry', async () => {
   await allowed(updateCounter('occupancy', 1));
   await allowed(updateCounter('occupancy', -1));
-  // Clamped to 0, like the app
-  await allowed(updateCounter('occupancy', -1));
   await allowed(updateCounter('tickets', 4));
   await allowed(updateCounter('tickets', -1));
-  assert.deepEqual(
-    {
-      count: (await counters()).count,
-      ticketsSold: (await counters()).ticketsSold,
-    },
-    { count: 0, ticketsSold: 3 },
-  );
+  assert.deepEqual(await counters(), { count: 0, ticketsSold: 3 });
+});
+
+test('counters can’t go below 0', async () => {
+  await denied(updateCounter('occupancy', -1));
+  assert.deepEqual(await counters(), { count: 0, ticketsSold: 3 });
 });
 
 test('overlapping clicks on two devices are all counted', async () => {
-  const before = (await counters()).count;
+  const { count } = await counters();
   const results = await Promise.allSettled([
     ...Array.from({ length: 8 }, () => updateCounter('occupancy', 1)),
     ...Array.from({ length: 8 }, () =>
@@ -139,7 +156,17 @@ test('overlapping clicks on two devices are all counted', async () => {
     results.filter((result) => result.status === 'rejected'),
     [],
   );
-  assert.equal((await counters()).count, before + 16);
+  assert.equal((await counters()).count, count + 16);
+});
+
+test('clicks from older versions of the app still work', async () => {
+  const before = await counters();
+  await allowed(legacyUpdateCounter('occupancy', 1));
+  await allowed(legacyUpdateCounter('tickets', 2));
+  assert.deepEqual(await counters(), {
+    count: before.count + 1,
+    ticketsSold: before.ticketsSold + 2,
+  });
 });
 
 test('anyone can read events and their log', async () => {
@@ -154,19 +181,26 @@ test('clicks outside what the buttons do are denied', async () => {
 });
 
 test('counters and the log only change together', async () => {
-  await denied(
-    addDoc(collection(eventRef(), 'log'), logEntry({ newCount: 1 })),
-  );
-  await denied(updateDoc(eventRef(), { count: 1 }));
+  await denied(addDoc(collection(eventRef(), 'log'), logEntry()));
+  await denied(updateDoc(eventRef(), { count: increment(1) }));
   // Pointing at an entry that already exists
-  await denied(updateDoc(eventRef(), { count: 1, lastLogId: 'old' }));
   await denied(
-    commitBatch((batch) => {
-      const first = doc(collection(eventRef(), 'log'));
-      const second = doc(collection(eventRef(), 'log'));
-      batch.update(eventRef(), { count: 1, lastLogId: first.id });
-      batch.set(first, logEntry({ newCount: 1 }));
-      batch.set(second, logEntry({ newCount: 1 }));
+    updateDoc(eventRef(), { count: increment(1), lastLogId: 'old' }),
+  );
+  await denied(
+    commitBatch((batch, newEntry) => {
+      const first = newEntry();
+      batch.update(eventRef(), { count: increment(1), lastLogId: first.id });
+      batch.set(first, logEntry());
+      batch.set(newEntry(), logEntry());
+    }),
+  );
+  // The entry must say what the change was
+  await denied(
+    commitBatch((batch, newEntry) => {
+      const entry = newEntry();
+      batch.update(eventRef(), { count: increment(1), lastLogId: entry.id });
+      batch.set(entry, logEntry({ delta: -1 }));
     }),
   );
 });
@@ -174,42 +208,39 @@ test('counters and the log only change together', async () => {
 test('counters can’t be set to arbitrary values', async () => {
   const { count } = await counters();
   await denied(
-    commitBatch((batch) => {
-      const entry = doc(collection(eventRef(), 'log'));
+    commitBatch((batch, newEntry) => {
+      const entry = newEntry();
       batch.update(eventRef(), { count: count + 999, lastLogId: entry.id });
-      batch.set(entry, logEntry({ newCount: count + 999 }));
+      batch.set(entry, logEntry());
     }),
   );
   await denied(
-    commitBatch((batch) => {
-      const entry = doc(collection(eventRef(), 'log'));
+    commitBatch((batch, newEntry) => {
+      const entry = newEntry();
       batch.update(eventRef(), {
-        count: count + 1,
+        count: increment(1),
         ticketsSold: 99,
         lastLogId: entry.id,
       });
-      batch.set(entry, logEntry({ newCount: count + 1 }));
+      batch.set(entry, logEntry());
     }),
   );
   await denied(
-    commitBatch((batch) => {
-      const entry = doc(collection(eventRef(), 'log'));
+    commitBatch((batch, newEntry) => {
+      const entry = newEntry();
       batch.update(eventRef(), {
-        count: count + 1,
+        count: increment(1),
         maxCount: 1,
         lastLogId: entry.id,
       });
-      batch.set(entry, logEntry({ newCount: count + 1 }));
+      batch.set(entry, logEntry());
     }),
   );
 });
 
 test('everything else is closed to browsers', async () => {
   await denied(
-    addDoc(
-      collection(db, 'teams/t/events/missing/log'),
-      logEntry({ newCount: 1 }),
-    ),
+    addDoc(collection(db, 'teams/t/events/missing/log'), logEntry()),
   );
   await denied(setDoc(doc(db, 'teams/new'), { name: 'x' }));
   await denied(

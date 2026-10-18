@@ -136,11 +136,13 @@ counter/
 
 Every device listens to its event document with `onSnapshot`, so a change from one device shows up on all of them right away.
 
-### Atomic Updates
+### Updates and Offline Clicks
 
-The + / − and ticket buttons run a Firestore transaction that reads the current value, applies the change (clamped at 0), and writes the new value together with a log entry. Simultaneous clicks from several devices are retried by Firestore instead of overwriting each other.
+The + / − and ticket buttons write one batch: `increment()` on the counter and a new log entry with the change. The server applies the increment to the stored value, so simultaneous clicks from several devices all count.
 
-The security rules only let browsers change `count` and `ticketsSold` and add log entries. Creating teams and events, changing the max count and resetting go through `firebase-admin` on the server.
+The batch doesn't need a connection. Firestore applies it to the local cache (kept in IndexedDB) at once, so the number changes right away, and sends it when the device is online again, also after a reload. While clicks wait, the event pages show a notice. A click sent late gets the time it reached the server, so it shows up then in the stats.
+
+The security rules only let browsers change `count` and `ticketsSold` together with a log entry whose `delta` is exactly the change, and never below 0. The stats work back from the current totals through the log's deltas. Creating teams and events, changing the max count and resetting go through `firebase-admin` on the server.
 
 ### Pages
 
@@ -215,6 +217,8 @@ npm run test:e2e:prod             # against production, once it passes locally
 Walks through one event's life in a phone-sized browser: creating it, counting, tickets, stats, admin settings, PIN lockout and deleting it. `npm run test:e2e` starts the dev server unless it's already running; set `E2E_BASE_URL` to test another deployment.
 
 The dev server uses the production database too, so both create and delete a real event. They do it in the e2e team, "JayBo Test Team" (`src/lib/e2e.ts`), which visitors never see: the start page only lists it for browsers with the `e2e` cookie, which the tests set, and it doesn't count toward the 20-team cap.
+
+To try changes to `firestore.rules` before deploying them, run the dev server against the emulator (see above, e.g. with `-p 3001`) and the tests with the same `NEXT_PUBLIC_FIREBASE_PROJECT_ID` and `NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST` plus `E2E_BASE_URL=http://localhost:3001`.
 
 Against production, each run creates two events and makes six login attempts, which counts toward the rate limits (5 new events and 10 logins per 10 minutes per IP), so leave about 10 minutes between runs.
 

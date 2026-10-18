@@ -5,9 +5,13 @@ export type LogEntry = {
   id: string;
   type: 'occupancy' | 'tickets';
   delta: number;
-  newCount: number;
   // Milliseconds
   createdAt: number;
+};
+
+export type Totals = {
+  count: number;
+  ticketsSold: number;
 };
 
 export type OccupancyByMinute = {
@@ -27,7 +31,14 @@ const MAX_GAP_MS = 60 * MINUTE_MS;
 
 // Entries and exits per minute, plus people inside and tickets sold at the
 // end of each minute. The log must be sorted by createdAt.
-export function toOccupancyByMinute(log: LogEntry[]): OccupancyByMinute[] {
+//
+// Every counter change has a log entry (the security rules make sure), so
+// working back from the current totals gives the values before the first
+// entry, also when older entries were trimmed away.
+export function toOccupancyByMinute(
+  log: LogEntry[],
+  totals: Totals,
+): OccupancyByMinute[] {
   const events = log.map((entry) => ({
     ...entry,
     minuteMs: Math.floor(entry.createdAt / MINUTE_MS) * MINUTE_MS,
@@ -37,16 +48,11 @@ export function toOccupancyByMinute(log: LogEntry[]): OccupancyByMinute[] {
     return [];
   }
 
-  // Values just before the first logged event of each type
-  const firstOf = (type: string) => events.find((e) => e.type === type);
-  const firstOccupancy = firstOf('occupancy');
-  const firstTickets = firstOf('tickets');
-  let peopleInside = firstOccupancy
-    ? Math.max(0, firstOccupancy.newCount - firstOccupancy.delta)
-    : 0;
-  let ticketsSold = firstTickets
-    ? Math.max(0, firstTickets.newCount - firstTickets.delta)
-    : 0;
+  // Values just before the first logged event
+  const sumOf = (type: LogEntry['type']) =>
+    events.reduce((sum, e) => (e.type === type ? sum + e.delta : sum), 0);
+  let peopleInside = Math.max(0, totals.count - sumOf('occupancy'));
+  let ticketsSold = Math.max(0, totals.ticketsSold - sumOf('tickets'));
 
   const result: OccupancyByMinute[] = [];
   let eventIndex = 0;
@@ -65,9 +71,9 @@ export function toOccupancyByMinute(log: LogEntry[]): OccupancyByMinute[] {
       if (event.type === 'occupancy') {
         if (event.delta > 0) entries += event.delta;
         if (event.delta < 0) exits += Math.abs(event.delta);
-        peopleInside = event.newCount;
+        peopleInside = Math.max(0, peopleInside + event.delta);
       } else {
-        ticketsSold = event.newCount;
+        ticketsSold = Math.max(0, ticketsSold + event.delta);
       }
       eventIndex++;
     }
