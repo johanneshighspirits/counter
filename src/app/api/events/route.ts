@@ -8,6 +8,7 @@ import { isValidDate } from '@/lib/event-date';
 // Keeps a shared link from being used to fill the database. Admins free up
 // spots by deleting old events.
 const MAX_EVENTS_PER_TEAM = 20;
+const MAX_TEAMS = 20;
 
 // Top-level paths that a team slug must not shadow
 const RESERVED_TEAM_SLUGS = new Set(['admin', 'api']);
@@ -61,12 +62,21 @@ export async function POST(request: NextRequest) {
       return badRequest('PIN-koden måste vara 4–8 siffror');
     }
 
-    const pinHash = await hashPin(pin);
     const baseSlug = eventSlugify(trimmedEventName);
     const teamRef = getTeamRef(teamSlug);
     const isNewTeam = !(await teamRef.get()).exists;
 
-    if (!isNewTeam) {
+    if (isNewTeam) {
+      const teams = await getAdminDb().collection('teams').count().get();
+      if (teams.data().count >= MAX_TEAMS) {
+        return NextResponse.json(
+          {
+            error: `Det finns redan ${MAX_TEAMS} lag, så nya lag kan inte skapas just nu. Välj ett befintligt lag i listan.`,
+          },
+          { status: 409 },
+        );
+      }
+    } else {
       const events = await teamRef.collection('events').count().get();
       if (events.data().count >= MAX_EVENTS_PER_TEAM) {
         return NextResponse.json(
@@ -77,6 +87,9 @@ export async function POST(request: NextRequest) {
         );
       }
     }
+
+    // After the caps, so refused requests don't cost a slow hash
+    const pinHash = await hashPin(pin);
 
     // Try "skridskodisco", then "skridskodisco-2", "skridskodisco-3", ...
     for (let attempt = 1; attempt <= 20; attempt++) {
