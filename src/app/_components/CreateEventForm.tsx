@@ -6,7 +6,13 @@ import { QrLink } from '@/components/QrLink';
 import { toEventDate } from '@/lib/event-date';
 
 const inputClassName =
-  'border border-white bg-transparent p-3 rounded-sm text-white placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed';
+  'border border-white bg-transparent p-3 rounded-sm text-white placeholder-gray-400 focus:bg-white focus:text-black focus:placeholder-gray-500 focus:scheme-light focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
+
+const Hint = ({ id, children }: { id: string; children: React.ReactNode }) => (
+  <p id={id} className="text-sm text-slate-400">
+    {children}
+  </p>
+);
 
 export const CreateEventForm = ({
   teamNames,
@@ -60,7 +66,7 @@ export const CreateEventForm = ({
     };
 
     return (
-      <div className="flex flex-col gap-4 p-6 border border-white rounded-lg text-center">
+      <div className="flex flex-col gap-4 p-6 bg-[#0f1a14] border border-white/20 rounded-lg text-center">
         <p className="text-slate-400">Klart! Dela länken med dina funktionärer:</p>
         <p className="font-mono text-lg break-all">{url}</p>
         <QrLink url={url} fileName={createdPath.slice(1).replace('/', '-')} />
@@ -82,10 +88,14 @@ export const CreateEventForm = ({
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4 p-6 border border-white rounded-lg">
-      <label className="flex flex-col gap-2">
-        <span className="text-sm font-medium">Lag</span>
+      className="flex flex-col gap-4 p-6 bg-[#0f1a14] border border-white/20 rounded-lg">
+      <div className="flex flex-col gap-2">
+        <label htmlFor="team-name" className="text-sm font-medium">
+          Lag
+        </label>
         <input
+          id="team-name"
+          aria-describedby="team-name-hint"
           value={teamName}
           onChange={(e) => setTeamName(e.target.value)}
           list="team-names"
@@ -100,10 +110,18 @@ export const CreateEventForm = ({
             <option key={name} value={name} />
           ))}
         </datalist>
-      </label>
-      <label className="flex flex-col gap-2">
-        <span className="text-sm font-medium">Evenemang</span>
+        <Hint id="team-name-hint">
+          Välj ditt lag i listan eller skriv ett nytt namn. Alla lagets
+          evenemang samlas på en gemensam sida.
+        </Hint>
+      </div>
+      <div className="flex flex-col gap-2">
+        <label htmlFor="event-name" className="text-sm font-medium">
+          Evenemang
+        </label>
         <input
+          id="event-name"
+          aria-describedby="event-name-hint"
           value={eventName}
           onChange={(e) => setEventName(e.target.value)}
           placeholder="t.ex. Skridskodisco"
@@ -112,20 +130,36 @@ export const CreateEventForm = ({
           className={inputClassName}
           autoFocus={!!initialTeamName}
         />
-      </label>
-      <label className="flex flex-col gap-2">
-        <span className="text-sm font-medium">Datum</span>
+        <Hint id="event-name-hint">
+          Namnet visas för funktionärerna och blir en del av länken, t.ex.
+          /team17/skridskodisco.
+        </Hint>
+      </div>
+      <div className="flex flex-col gap-2">
+        <label htmlFor="event-date" className="text-sm font-medium">
+          Datum
+        </label>
         <input
+          id="event-date"
+          aria-describedby="event-date-hint"
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
           disabled={isLoading}
           className={`${inputClassName} scheme-dark`}
         />
-      </label>
-      <label className="flex flex-col gap-2">
-        <span className="text-sm font-medium">PIN-kod för admin</span>
+        <Hint id="event-date-hint">
+          Dagen evenemanget äger rum. Visas på lagets sida och kan ändras
+          senare under admin.
+        </Hint>
+      </div>
+      <div className="flex flex-col gap-2">
+        <label htmlFor="event-pin" className="text-sm font-medium">
+          PIN-kod för admin
+        </label>
         <input
+          id="event-pin"
+          aria-describedby="event-pin-hint"
           type="password"
           inputMode="numeric"
           pattern="\d{4,8}"
@@ -136,7 +170,11 @@ export const CreateEventForm = ({
           disabled={isLoading}
           className={inputClassName}
         />
-      </label>
+        <Hint id="event-pin-hint">
+          Skyddar admin-sidan där du ändrar maxantal och datum och nollställer
+          räknaren. Spara koden – den går inte att visa igen.
+        </Hint>
+      </div>
       {error && <p className="text-red-400 text-sm">{error}</p>}
       <button
         type="submit"

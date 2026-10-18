@@ -53,7 +53,7 @@ export const AdminLogin = ({
     <div className="flex items-center justify-center min-h-dvh">
       <form
         onSubmit={handleSubmit}
-        className="flex flex-col gap-4 w-80 p-6 border border-white rounded-lg">
+        className="flex flex-col gap-4 w-80 p-6 bg-[#0f1a14] border border-white/20 rounded-lg">
         <h1 className="text-2xl font-bold">Admin Access</h1>
         <input
           type="password"
@@ -61,7 +61,7 @@ export const AdminLogin = ({
           onChange={(e) => setPassword(e.target.value)}
           placeholder={placeholder}
           disabled={isLoading}
-          className="border border-white bg-transparent p-3 rounded-sm text-white placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="border border-white bg-transparent p-3 rounded-sm text-white placeholder-gray-400 focus:bg-white focus:text-black focus:placeholder-gray-500 focus:scheme-light focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
           autoFocus
         />
         {error && <p className="text-red-400 text-sm">{error}</p>}

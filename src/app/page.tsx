@@ -11,7 +11,7 @@ export default async function Home(props: PageProps<'/'>) {
 
   return (
     <main className="flex items-center justify-center min-h-dvh bg-linear-to-tr from-black to-green-950">
-      <div className="w-full max-w-sm px-4 py-8 flex flex-col gap-10">
+      <div className="w-full max-w-md px-4 py-8 flex flex-col gap-10">
         {teams.length > 0 && (
           <section className="flex flex-col gap-4">
             <h1 className="font-brand text-4xl text-center">Lag</h1>
@@ -21,7 +21,7 @@ export default async function Home(props: PageProps<'/'>) {
                 <Link
                   key={t.slug}
                   href={`/${t.slug}`}
-                  className="border border-white px-4 py-2 rounded-lg hover:bg-white hover:text-black transition-colors">
+                  className="bg-[#0f1a14] border border-white/20 px-4 py-2 rounded-lg hover:bg-white hover:text-black transition-colors">
                   {t.name}
                 </Link>
               ))}

@@ -40,7 +40,7 @@ export default async function EventHome(
           <Link
             key={page.path}
             href={`/${teamSlug}/${eventSlug}/${page.path}`}
-            className="border border-white p-4 rounded-lg text-xl hover:bg-white hover:text-black transition-colors">
+            className="bg-[#0f1a14] border border-white/20 p-4 rounded-lg text-xl hover:bg-white hover:text-black transition-colors">
             {page.label}
           </Link>
         ))}

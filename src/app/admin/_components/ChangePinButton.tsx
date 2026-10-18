@@ -70,7 +70,7 @@ export const ChangePinButton = ({ basePath }: { basePath: string }) => {
           aria-label="New PIN"
           maxLength={8}
           disabled={isLoading}
-          className="w-28 border border-white bg-transparent px-2 py-2 text-sm rounded-sm text-white placeholder-gray-400 font-mono disabled:opacity-50"
+          className="w-28 border border-white bg-transparent px-2 py-2 text-sm rounded-sm text-white placeholder-gray-400 font-mono focus:bg-white focus:text-black focus:placeholder-gray-500 focus:scheme-light focus:outline-none disabled:opacity-50"
           autoFocus
         />
         <button

@@ -26,7 +26,7 @@ export default async function TeamPage(props: PageProps<'/[teamSlug]'>) {
 
   return (
     <main className="flex flex-col items-center min-h-dvh bg-linear-to-tr from-black to-green-950">
-      <div className="w-full max-w-sm px-4 flex flex-col gap-8 m-auto py-8 text-center">
+      <div className="w-full max-w-md px-4 flex flex-col gap-8 m-auto py-8 text-center">
         <h1 className="font-brand text-4xl">{team.name}</h1>
         <nav className="flex flex-col gap-4">
           {events.length === 0 && (
@@ -36,7 +36,7 @@ export default async function TeamPage(props: PageProps<'/[teamSlug]'>) {
             <Link
               key={event.slug}
               href={`/${teamSlug}/${event.slug}`}
-              className="group border border-white p-4 rounded-lg hover:bg-white hover:text-black transition-colors">
+              className="group bg-[#0f1a14] border border-white/20 p-4 rounded-lg hover:bg-white hover:text-black transition-colors">
               <span className="block text-xl">{event.name}</span>
               <span className="block text-sm text-slate-400 group-hover:text-slate-600">
                 {formatEventDate(event.date)}
