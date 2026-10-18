@@ -53,13 +53,15 @@ ADMIN_PASSWORD=your_admin_password
 
 ### 4. Create an Event
 
-Open the start page (`/`), enter the team, the event name and an admin PIN, and you get a link like `/team17/skridskodisco`. Teams are created on the fly: the team slug is the name with only letters and digits (`Team 17` → `team17`), so the same team is found however it's typed.
+Open the start page (`/`), enter the team, the event name, the date (today by default, editable later on the event's admin page) and an admin PIN, and you get a link like `/team17/skridskodisco`. Teams are created on the fly: the team slug is the name with only letters and digits (`Team 17` → `team17`), so the same team is found however it's typed.
 
 Events can also be created from the command line (these have no PIN, so only `ADMIN_PASSWORD` unlocks their admin page):
 
 ```bash
 node --env-file=.env.local scripts/create-event.mjs team17 "Team 17" skridskodisco "Skridskodisco"
 ```
+
+Optional extra arguments are the max count (default 150) and the date as `YYYY-MM-DD` (default today).
 
 To set or change an event's admin PIN (this also clears a lockout):
 

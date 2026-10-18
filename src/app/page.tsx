@@ -1,11 +1,7 @@
-import type { Metadata } from 'next';
+import Link from 'next/link';
 import { BajenLogo } from '@/components/BajenLogo';
 import { getTeam, getTeams } from '@/lib/firebase-server';
 import { CreateEventForm } from './_components/CreateEventForm';
-
-export const metadata: Metadata = {
-  title: 'Nytt evenemang',
-};
 
 export default async function Home(props: PageProps<'/'>) {
   const { team } = await props.searchParams;
@@ -15,13 +11,32 @@ export default async function Home(props: PageProps<'/'>) {
 
   return (
     <main className="flex items-center justify-center min-h-dvh bg-linear-to-tr from-black to-green-950">
-      <div className="w-full max-w-sm px-4 py-8 flex flex-col gap-6">
-        <h1 className="font-brand text-4xl text-center">Nytt evenemang</h1>
-        <CreateEventForm
-          teamNames={teams.map((t) => t.name)}
-          initialTeamName={initialTeam?.name ?? ''}
-        />
-        <BajenLogo className="mt-10 h-24" />
+      <div className="w-full max-w-sm px-4 py-8 flex flex-col gap-10">
+        {teams.length > 0 && (
+          <section className="flex flex-col gap-4">
+            <h1 className="font-brand text-4xl text-center">Lag</h1>
+            {/* Compact, so the form below stays in view */}
+            <nav className="flex flex-wrap justify-center gap-2">
+              {teams.map((t) => (
+                <Link
+                  key={t.slug}
+                  href={`/${t.slug}`}
+                  className="border border-white px-4 py-2 rounded-lg hover:bg-white hover:text-black transition-colors">
+                  {t.name}
+                </Link>
+              ))}
+            </nav>
+          </section>
+        )}
+
+        <section className="flex flex-col gap-4">
+          <h2 className="font-brand text-4xl text-center">Nytt evenemang</h2>
+          <CreateEventForm
+            teamNames={teams.map((t) => t.name)}
+            initialTeamName={initialTeam?.name ?? ''}
+          />
+        </section>
+        <BajenLogo className="mt-4 h-24" />
       </div>
     </main>
   );

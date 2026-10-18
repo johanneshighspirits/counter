@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { QrLink } from '@/components/QrLink';
+import { toEventDate } from '@/lib/event-date';
 
 const inputClassName =
   'border border-white bg-transparent p-3 rounded-sm text-white placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed';
@@ -15,6 +17,7 @@ export const CreateEventForm = ({
 }) => {
   const [teamName, setTeamName] = useState(initialTeamName);
   const [eventName, setEventName] = useState('');
+  const [date, setDate] = useState(() => toEventDate(Date.now()));
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -32,7 +35,7 @@ export const CreateEventForm = ({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ teamName, eventName, pin }),
+        body: JSON.stringify({ teamName, eventName, date, pin }),
       });
       const body = await response.json();
 
@@ -60,6 +63,7 @@ export const CreateEventForm = ({
       <div className="flex flex-col gap-4 p-6 border border-white rounded-lg text-center">
         <p className="text-slate-400">Klart! Dela länken med dina funktionärer:</p>
         <p className="font-mono text-lg break-all">{url}</p>
+        <QrLink url={url} fileName={createdPath.slice(1).replace('/', '-')} />
         <button
           type="button"
           onClick={copyLink}
@@ -110,6 +114,16 @@ export const CreateEventForm = ({
         />
       </label>
       <label className="flex flex-col gap-2">
+        <span className="text-sm font-medium">Datum</span>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          disabled={isLoading}
+          className={`${inputClassName} scheme-dark`}
+        />
+      </label>
+      <label className="flex flex-col gap-2">
         <span className="text-sm font-medium">PIN-kod för admin</span>
         <input
           type="password"
@@ -127,7 +141,11 @@ export const CreateEventForm = ({
       <button
         type="submit"
         disabled={
-          isLoading || !teamName.trim() || !eventName.trim() || pin.length < 4
+          isLoading ||
+          !teamName.trim() ||
+          !eventName.trim() ||
+          !date ||
+          pin.length < 4
         }
         className="border border-white p-3 rounded-sm hover:bg-white hover:text-black disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium">
         {isLoading ? 'Skapar...' : 'Skapa evenemang'}

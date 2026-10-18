@@ -5,14 +5,15 @@ import { CircularCounter } from './CircularCounter';
 import { useCounter } from './CounterProvider';
 import { TicketButtons } from './TicketButtons';
 
-export const TicketCounter = ({ projectName }: { projectName: string }) => {
+// eventTitle is "Julmarknad · Team 16"
+export const TicketCounter = ({ eventTitle }: { eventTitle: string }) => {
   const { count, ticketsSold, error } = useCounter();
 
   useEffect(() => {
-    if (projectName) {
-      globalThis.document.title = `(${ticketsSold}) Biljetter · ${projectName}`;
+    if (eventTitle) {
+      globalThis.document.title = `(${ticketsSold}) Biljetter · ${eventTitle}`;
     }
-  }, [projectName, ticketsSold]);
+  }, [eventTitle, ticketsSold]);
 
   return (
     <div className="w-full max-w-md px-4 pt-6 my-auto flex flex-col gap-6">

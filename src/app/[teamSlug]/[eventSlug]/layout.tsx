@@ -1,9 +1,19 @@
 import { BajenLogo } from '@/components/BajenLogo';
 import { BottomNav } from '@/components/BottomNav';
 import { CounterProvider } from '@/components/CounterProvider';
-import { getEvent } from '@/lib/firebase-server';
+import { getEvent, getEventTitle } from '@/lib/firebase-server';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { PropsWithChildren } from 'react';
+
+// Pages add their own part in front, e.g. "Statistik · Julmarknad · Team 16"
+export async function generateMetadata(
+  props: LayoutProps<'/[teamSlug]/[eventSlug]'>,
+): Promise<Metadata> {
+  const { teamSlug, eventSlug } = await props.params;
+  const title = await getEventTitle(teamSlug, eventSlug);
+  return { title: { default: title, template: `%s · ${title}` } };
+}
 
 export default async function EventLayout({
   params,

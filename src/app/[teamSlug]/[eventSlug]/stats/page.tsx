@@ -1,7 +1,34 @@
-import { getOccupancyByMinute, getEvent } from '@/lib/firebase-server';
-import { OccupancyChart } from './_components/OccupancyChart';
+import { Suspense } from 'react';
+import { getEvent, getEventLog } from '@/lib/firebase-server';
+import { formatEventDate } from '@/lib/event-date';
+import { ChartSkeleton } from './_components/ChartSkeleton';
+import { LiveOccupancyChart } from './_components/LiveOccupancyChart';
 import { StatTiles } from './_components/StatTiles';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+
+// The event layout appends " · Julmarknad · Team 16"
+export const metadata: Metadata = {
+  title: 'Statistik',
+};
+
+// Loads the log separately, so the header and live tiles show right away
+const Charts = async ({
+  teamSlug,
+  eventSlug,
+}: {
+  teamSlug: string;
+  eventSlug: string;
+}) => {
+  const log = await getEventLog(teamSlug, eventSlug);
+  return (
+    <LiveOccupancyChart
+      teamSlug={teamSlug}
+      eventSlug={eventSlug}
+      initialLog={log}
+    />
+  );
+};
 
 export default async function StatsPage(
   props: PageProps<'/[teamSlug]/[eventSlug]/stats'>,
@@ -13,17 +40,18 @@ export default async function StatsPage(
     notFound();
   }
 
-  const data = await getOccupancyByMinute(teamSlug, eventSlug);
-
   return (
     <div className="w-full max-w-2xl px-4 pt-6 pb-4 flex flex-col gap-4">
-      <h1 className="text-center text-xl text-slate-400">{event.name}</h1>
+      <h1 className="text-center text-xl text-slate-400">
+        {event.name}{' '}
+        <span className="text-base text-slate-500">
+          · {formatEventDate(event.date)}
+        </span>
+      </h1>
       <StatTiles />
-      <OccupancyChart data={data} />
-      {/* The tiles above are live, but the chart is rendered on the server */}
-      <p className="text-center text-sm text-slate-500">
-        Ladda om sidan för att se den senaste statistiken i diagrammet
-      </p>
+      <Suspense fallback={<ChartSkeleton />}>
+        <Charts teamSlug={teamSlug} eventSlug={eventSlug} />
+      </Suspense>
     </div>
   );
 }

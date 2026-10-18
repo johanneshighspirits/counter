@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { BajenLogo } from '@/components/BajenLogo';
+import { formatEventDate } from '@/lib/event-date';
 import { getTeam, getTeamEvents } from '@/lib/firebase-server';
 
 export async function generateMetadata(
@@ -35,8 +36,11 @@ export default async function TeamPage(props: PageProps<'/[teamSlug]'>) {
             <Link
               key={event.slug}
               href={`/${teamSlug}/${event.slug}`}
-              className="border border-white p-4 rounded-lg text-xl hover:bg-white hover:text-black transition-colors">
-              {event.name}
+              className="group border border-white p-4 rounded-lg hover:bg-white hover:text-black transition-colors">
+              <span className="block text-xl">{event.name}</span>
+              <span className="block text-sm text-slate-400 group-hover:text-slate-600">
+                {formatEventDate(event.date)}
+              </span>
             </Link>
           ))}
         </nav>

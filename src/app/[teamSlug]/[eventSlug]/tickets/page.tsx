@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { getEvent } from '@/lib/firebase-server';
+import { getEvent, getEventTitle } from '@/lib/firebase-server';
 import { TicketCounter } from '@/components/TicketCounter';
 import { notFound } from 'next/navigation';
 
@@ -10,9 +10,8 @@ export async function generateMetadata(
   const { teamSlug, eventSlug } = await props.params;
   const event = await getEvent(teamSlug, eventSlug);
 
-  return event
-    ? { title: `(${event.ticketsSold}) Biljetter · ${event.name}` }
-    : {};
+  // The event layout appends " · Julmarknad · Team 16"
+  return event ? { title: `(${event.ticketsSold}) Biljetter` } : {};
 }
 
 export default async function TicketsPage(
@@ -20,11 +19,14 @@ export default async function TicketsPage(
 ) {
   const { teamSlug, eventSlug } = await props.params;
   // Initial counter data is fetched in the event layout
-  const event = await getEvent(teamSlug, eventSlug);
+  const [event, eventTitle] = await Promise.all([
+    getEvent(teamSlug, eventSlug),
+    getEventTitle(teamSlug, eventSlug),
+  ]);
 
   if (!event) {
     notFound();
   }
 
-  return <TicketCounter projectName={event.name} />;
+  return <TicketCounter eventTitle={eventTitle} />;
 }

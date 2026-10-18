@@ -3,6 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getAdminDb, getEventRef, getTeamRef } from '@/lib/firebase-server';
 import { eventCookieOptions } from '@/lib/admin-auth';
 import { getEventPinRef, hashPin, PIN_PATTERN } from '@/lib/event-pin';
+import { isValidDate } from '@/lib/event-date';
 
 // Top-level paths that a team slug must not shadow
 const RESERVED_TEAM_SLUGS = new Set(['admin', 'api']);
@@ -34,7 +35,7 @@ const badRequest = (error: string) =>
 
 export async function POST(request: NextRequest) {
   try {
-    const { teamName, eventName, pin } = await request.json();
+    const { teamName, eventName, date, pin } = await request.json();
     const trimmedTeamName = typeof teamName === 'string' ? teamName.trim() : '';
     const trimmedEventName =
       typeof eventName === 'string' ? eventName.trim() : '';
@@ -48,6 +49,9 @@ export async function POST(request: NextRequest) {
     }
     if (!trimmedEventName || trimmedEventName.length > 60) {
       return badRequest('Evenemanget måste ha ett namn på 1–60 tecken');
+    }
+    if (!isValidDate(date)) {
+      return badRequest('Evenemanget måste ha ett datum');
     }
     if (typeof pin !== 'string' || !PIN_PATTERN.test(pin)) {
       return badRequest('PIN-koden måste vara 4–8 siffror');
@@ -69,6 +73,7 @@ export async function POST(request: NextRequest) {
       }
       batch.create(getEventRef(teamSlug, eventSlug), {
         name: trimmedEventName,
+        date,
         count: 0,
         maxCount: 150,
         ticketsSold: 0,

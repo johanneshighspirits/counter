@@ -1,6 +1,7 @@
-import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { ShareEventButton } from '@/components/ShareEventButton';
+import { formatEventDate } from '@/lib/event-date';
 import { getEvent, getTeam } from '@/lib/firebase-server';
 
 const pages = [
@@ -8,15 +9,6 @@ const pages = [
   { path: 'tickets', label: 'Biljetter' },
   { path: 'stats', label: 'Statistik' },
 ];
-
-export async function generateMetadata(
-  props: PageProps<'/[teamSlug]/[eventSlug]'>,
-): Promise<Metadata> {
-  const { teamSlug, eventSlug } = await props.params;
-  const event = await getEvent(teamSlug, eventSlug);
-
-  return event ? { title: event.name } : {};
-}
 
 export default async function EventHome(
   props: PageProps<'/[teamSlug]/[eventSlug]'>,
@@ -41,6 +33,7 @@ export default async function EventHome(
           {team?.name ?? teamSlug}
         </Link>
         <h1 className="font-brand text-4xl">{event.name}</h1>
+        <p className="text-slate-400">{formatEventDate(event.date)}</p>
       </header>
       <nav className="flex flex-col gap-4">
         {pages.map((page) => (
@@ -52,11 +45,17 @@ export default async function EventHome(
           </Link>
         ))}
       </nav>
-      <Link
-        href={`/${teamSlug}/${eventSlug}/admin`}
-        className="text-slate-400 underline underline-offset-2">
-        Admin
-      </Link>
+      <div className="flex justify-center gap-6">
+        <ShareEventButton
+          path={`/${teamSlug}/${eventSlug}`}
+          eventName={event.name}
+        />
+        <Link
+          href={`/${teamSlug}/${eventSlug}/admin`}
+          className="text-slate-400 underline underline-offset-2">
+          Admin
+        </Link>
+      </div>
     </div>
   );
 }

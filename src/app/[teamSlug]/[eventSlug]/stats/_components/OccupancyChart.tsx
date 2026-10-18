@@ -1,6 +1,6 @@
 'use client';
 
-import type { OccupancyByMinute } from '@/lib/firebase-server';
+import type { OccupancyByMinute } from '@/lib/occupancy';
 import type { ReactNode } from 'react';
 import {
   Bar,
@@ -37,10 +37,11 @@ type Bucket = {
   exitsBelow: number;
   people_inside: number;
   tickets_sold: number;
+  gapBefore: boolean;
 };
 
 const MINUTE_MS = 60_000;
-const BUCKET_MINUTES = [1, 2, 5, 10, 15, 30];
+const BUCKET_MINUTES = [1, 2, 5, 10, 15, 30, 60, 120, 180, 360, 720, 1440];
 const MAX_BARS = 30;
 
 const formatTime = (ms: number) =>
@@ -49,13 +50,37 @@ const formatTime = (ms: number) =>
     minute: '2-digit',
   });
 
+// "18 okt. 14:30", for logs that span more than one day
+const formatDateTime = (ms: number) =>
+  new Date(ms).toLocaleString('sv-SE', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+const spansDays = (data: OccupancyByMinute[]) =>
+  new Date(data[0].minute).toDateString() !==
+  new Date(data[data.length - 1].minute).toDateString();
+
+const bucketCount = (data: OccupancyByMinute[], bucketMs: number) =>
+  new Set(
+    data.map((point) =>
+      Math.floor(new Date(point.minute).getTime() / bucketMs),
+    ),
+  ).size;
+
 // Group minutes into buckets so a phone-width chart never shows more than
 // MAX_BARS bars. Counts are summed; people inside and tickets sold are the
 // values at the end of each bucket.
-const toBuckets = (data: OccupancyByMinute[]): Bucket[] => {
+const toBuckets = (
+  data: OccupancyByMinute[],
+  format: (ms: number) => string,
+): Bucket[] => {
   const bucketMinutes =
-    BUCKET_MINUTES.find((size) => data.length / size <= MAX_BARS) ??
-    BUCKET_MINUTES[BUCKET_MINUTES.length - 1];
+    BUCKET_MINUTES.find(
+      (size) => bucketCount(data, size * MINUTE_MS) <= MAX_BARS,
+    ) ?? BUCKET_MINUTES[BUCKET_MINUTES.length - 1];
   const bucketMs = bucketMinutes * MINUTE_MS;
   const buckets = new Map<number, Bucket>();
 
@@ -65,12 +90,13 @@ const toBuckets = (data: OccupancyByMinute[]): Bucket[] => {
     const bucket = buckets.get(start) ?? {
       start,
       end: start + bucketMs,
-      time: formatTime(start),
+      time: format(start),
       entries: 0,
       exits: 0,
       exitsBelow: 0,
       people_inside: 0,
       tickets_sold: 0,
+      gapBefore: false,
     };
 
     bucket.entries += point.entries;
@@ -78,6 +104,7 @@ const toBuckets = (data: OccupancyByMinute[]): Bucket[] => {
     bucket.exitsBelow = -bucket.exits;
     bucket.people_inside = point.people_inside;
     bucket.tickets_sold = point.tickets_sold;
+    bucket.gapBefore ||= point.gapBefore;
     buckets.set(start, bucket);
   }
 
@@ -126,17 +153,21 @@ type ChartTooltipProps = {
   payload?: { payload: Bucket }[];
 };
 
-const bucketTitle = (bucket: Bucket) =>
-  bucket.end - bucket.start > MINUTE_MS
-    ? `${formatTime(bucket.start)}–${formatTime(bucket.end)}`
-    : formatTime(bucket.start);
+type FormattedTooltipProps = ChartTooltipProps & {
+  format: (ms: number) => string;
+};
 
-const TotalsTooltip = ({ active, payload }: ChartTooltipProps) => {
+const bucketTitle = (bucket: Bucket, format: (ms: number) => string) =>
+  bucket.end - bucket.start > MINUTE_MS
+    ? `${format(bucket.start)}–${format(bucket.end)}`
+    : format(bucket.start);
+
+const TotalsTooltip = ({ active, payload, format }: FormattedTooltipProps) => {
   const bucket = payload?.[0]?.payload;
   if (!active || !bucket) return null;
   return (
     <TooltipBox
-      title={formatTime(bucket.end - MINUTE_MS)}
+      title={format(bucket.end - MINUTE_MS)}
       rows={[
         { label: 'Inne', value: bucket.people_inside, color: color.inside },
         {
@@ -149,12 +180,12 @@ const TotalsTooltip = ({ active, payload }: ChartTooltipProps) => {
   );
 };
 
-const FlowTooltip = ({ active, payload }: ChartTooltipProps) => {
+const FlowTooltip = ({ active, payload, format }: FormattedTooltipProps) => {
   const bucket = payload?.[0]?.payload;
   if (!active || !bucket) return null;
   return (
     <TooltipBox
-      title={bucketTitle(bucket)}
+      title={bucketTitle(bucket, format)}
       rows={[
         { label: 'In', value: bucket.entries, color: color.entries },
         { label: 'Ut', value: bucket.exits, color: color.exits },
@@ -201,14 +232,26 @@ export const OccupancyChart = ({ data }: { data: OccupancyByMinute[] }) => {
   if (data.length === 0) {
     return (
       <p className="text-center text-gray-400 py-12">
-        Ingen aktivitet de senaste 6 timmarna
+        Ingen aktivitet har loggats
       </p>
     );
   }
 
-  const buckets = toBuckets(data);
+  const format = spansDays(data) ? formatDateTime : formatTime;
+  const buckets = toBuckets(data, format);
   const bucketMinutes = (buckets[0].end - buckets[0].start) / MINUTE_MS;
   const hoverCursor = { fill: 'rgb(255 255 255 / 0.06)' };
+  // Dashed lines where quiet stretches were left out
+  const gapLines = buckets
+    .filter((bucket) => bucket.gapBefore)
+    .map((bucket) => (
+      <ReferenceLine
+        key={bucket.start}
+        x={bucket.time}
+        stroke={color.tick}
+        strokeDasharray="4 4"
+      />
+    ));
 
   return (
     <div className="w-full flex flex-col gap-4">
@@ -229,12 +272,15 @@ export const OccupancyChart = ({ data }: { data: OccupancyByMinute[] }) => {
             <CartesianGrid vertical={false} stroke={color.grid} />
             <XAxis {...xAxisProps} />
             <YAxis {...yAxisProps} />
+            {gapLines}
             <Tooltip
-              content={<TotalsTooltip />}
+              content={<TotalsTooltip format={format} />}
               cursor={{ stroke: color.axis }}
             />
+            {/* Straight lines between the bucket values, since steps hide
+                either the first or the latest value */}
             <Line
-              type="stepAfter"
+              type="linear"
               dataKey="people_inside"
               stroke={color.inside}
               strokeWidth={2}
@@ -243,7 +289,7 @@ export const OccupancyChart = ({ data }: { data: OccupancyByMinute[] }) => {
               isAnimationActive={false}
             />
             <Line
-              type="stepAfter"
+              type="linear"
               dataKey="tickets_sold"
               stroke={color.tickets}
               strokeWidth={2}
@@ -259,7 +305,9 @@ export const OccupancyChart = ({ data }: { data: OccupancyByMinute[] }) => {
         title={
           bucketMinutes === 1
             ? 'In och ut per minut'
-            : `In och ut per ${bucketMinutes} min`
+            : bucketMinutes % 60 === 0
+              ? `In och ut per ${bucketMinutes / 60} h`
+              : `In och ut per ${bucketMinutes} min`
         }
         legend={
           <Legend
@@ -282,7 +330,8 @@ export const OccupancyChart = ({ data }: { data: OccupancyByMinute[] }) => {
               tickFormatter={(value: number) => String(Math.abs(value))}
             />
             <ReferenceLine y={0} stroke={color.axis} />
-            <Tooltip content={<FlowTooltip />} cursor={hoverCursor} />
+            {gapLines}
+            <Tooltip content={<FlowTooltip format={format} />} cursor={hoverCursor} />
             <Bar
               dataKey="entries"
               stackId="flow"

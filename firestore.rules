@@ -44,6 +44,8 @@ service cloud.firestore {
           && request.resource.data.ticketsSold >= 0;
 
         match /log/{entryId} {
+          // The stats page listens for new entries
+          allow read: if true;
           allow create: if
             request.resource.data.keys()
               .hasOnly(['type', 'delta', 'newCount', 'source', 'createdAt'])

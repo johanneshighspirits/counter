@@ -1,16 +1,33 @@
 // Create (or rename) a team and an event in Firestore. The event gets no PIN,
 // so only ADMIN_PASSWORD unlocks its admin page.
-// Usage: node --env-file=.env.local scripts/create-event.mjs <teamSlug> "<team name>" <eventSlug> "<event name>" [maxCount]
+// Usage: node --env-file=.env.local scripts/create-event.mjs <teamSlug> "<team name>" <eventSlug> "<event name>" [maxCount] [YYYY-MM-DD]
 
 import { cert, initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 
-const [teamSlug, teamName, eventSlug, eventName, maxCount = '150'] =
-  process.argv.slice(2);
+// Today in Sweden, like the start page
+const today = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'Europe/Stockholm',
+}).format(Date.now());
 
-if (!teamSlug || !teamName || !eventSlug || !eventName) {
+const [
+  teamSlug,
+  teamName,
+  eventSlug,
+  eventName,
+  maxCount = '150',
+  date = today,
+] = process.argv.slice(2);
+
+if (
+  !teamSlug ||
+  !teamName ||
+  !eventSlug ||
+  !eventName ||
+  !/^\d{4}-\d{2}-\d{2}$/.test(date)
+) {
   console.error(
-    'Usage: node --env-file=.env.local scripts/create-event.mjs <teamSlug> "<team name>" <eventSlug> "<event name>" [maxCount]',
+    'Usage: node --env-file=.env.local scripts/create-event.mjs <teamSlug> "<team name>" <eventSlug> "<event name>" [maxCount] [YYYY-MM-DD]',
   );
   process.exit(1);
 }
@@ -34,6 +51,7 @@ if (existing.exists) {
 } else {
   await eventRef.set({
     name: eventName,
+    date,
     count: 0,
     maxCount: Number(maxCount),
     ticketsSold: 0,

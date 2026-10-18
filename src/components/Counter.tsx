@@ -4,7 +4,8 @@ import { useEffect } from 'react';
 import { CircularCounter } from '@/components/CircularCounter';
 import { useCounter } from '@/components/CounterProvider';
 
-export function Counter({ projectName }: { projectName: string }) {
+// eventTitle is "Julmarknad · Team 16"
+export function Counter({ eventTitle }: { eventTitle: string }) {
   const {
     count,
     maxCount,
@@ -15,10 +16,10 @@ export function Counter({ projectName }: { projectName: string }) {
   } = useCounter();
 
   useEffect(() => {
-    if (projectName) {
-      globalThis.document.title = `(${count}) ${projectName}`;
+    if (eventTitle) {
+      globalThis.document.title = `(${count}) ${eventTitle}`;
     }
-  }, [projectName, count]);
+  }, [eventTitle, count]);
 
   return (
     <div className="text-center px-4 flex flex-col gap-4 m-auto">

@@ -19,7 +19,7 @@ const bebasNeue = Bebas_Neue({
 });
 
 export const metadata: Metadata = {
-  title: 'Hammarby Hockey | Team 17',
+  title: 'Hammarby Hockey',
   description: 'Real-time visitor counter',
   appleWebApp: {
     capable: true,

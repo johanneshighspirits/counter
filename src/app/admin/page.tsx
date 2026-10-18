@@ -5,6 +5,7 @@ import { BajenLogo } from '@/components/BajenLogo';
 import { ResetButton } from '@/components/ResetButton';
 import { isGlobalAdmin } from '@/lib/admin-auth';
 import { getEventPinStatus, type PinStatus } from '@/lib/event-pin';
+import { formatEventDate } from '@/lib/event-date';
 import { getTeamsWithEvents } from '@/lib/firebase-server';
 import { ChangePinButton } from './_components/ChangePinButton';
 
@@ -90,7 +91,10 @@ export default async function GlobalAdminPage() {
                     <div className="flex-1 min-w-40">
                       <Link href={basePath} className="hover:underline">
                         {event.name}
-                      </Link>
+                      </Link>{' '}
+                      <span className="text-slate-500 text-sm">
+                        {formatEventDate(event.date)}
+                      </span>
                       <p className="text-slate-400 text-sm">
                         Inne{' '}
                         <span className="font-mono font-bold text-white">
