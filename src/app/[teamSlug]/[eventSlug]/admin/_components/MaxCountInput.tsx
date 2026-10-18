@@ -2,8 +2,14 @@
 
 import { useState } from 'react';
 
-export const MaxCountInput = ({ basePath }: { basePath: string }) => {
-  const [maxCount, setMaxCount] = useState<string>('300');
+export const MaxCountInput = ({
+  basePath,
+  initialMaxCount,
+}: {
+  basePath: string;
+  initialMaxCount: number;
+}) => {
+  const [maxCount, setMaxCount] = useState<string>(String(initialMaxCount));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

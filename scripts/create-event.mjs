@@ -5,7 +5,7 @@
 import { cert, initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 
-const [teamSlug, teamName, eventSlug, eventName, maxCount = '300'] =
+const [teamSlug, teamName, eventSlug, eventName, maxCount = '150'] =
   process.argv.slice(2);
 
 if (!teamSlug || !teamName || !eventSlug || !eventName) {

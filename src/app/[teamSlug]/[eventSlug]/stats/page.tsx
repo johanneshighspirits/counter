@@ -20,6 +20,10 @@ export default async function StatsPage(
       <h1 className="text-center text-xl text-slate-400">{event.name}</h1>
       <StatTiles />
       <OccupancyChart data={data} />
+      {/* The tiles above are live, but the chart is rendered on the server */}
+      <p className="text-center text-sm text-slate-500">
+        Ladda om sidan för att se den senaste statistiken i diagrammet
+      </p>
     </div>
   );
 }

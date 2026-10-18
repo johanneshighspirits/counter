@@ -45,7 +45,10 @@ export default async function AdminPage(
               url={`${basePath}/api/counter/reset`}
               confirmMessage={`Reset ${event?.name ?? eventSlug}? This sets both counters to 0 and deletes the history.`}
             />
-            <MaxCountInput basePath={basePath} />
+            <MaxCountInput
+              basePath={basePath}
+              initialMaxCount={event?.maxCount || 150}
+            />
           </div>
         </div>
       </div>

@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       batch.create(getEventRef(teamSlug, eventSlug), {
         name: trimmedEventName,
         count: 0,
-        maxCount: 300,
+        maxCount: 150,
         ticketsSold: 0,
         createdAt: FieldValue.serverTimestamp(),
       });
