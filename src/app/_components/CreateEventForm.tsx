@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { QrLink } from '@/components/QrLink';
 import { toEventDate } from '@/lib/event-date';
 
@@ -21,6 +22,7 @@ export const CreateEventForm = ({
   teamNames: string[];
   initialTeamName: string;
 }) => {
+  const router = useRouter();
   const [teamName, setTeamName] = useState(initialTeamName);
   const [eventName, setEventName] = useState('');
   const [date, setDate] = useState(() => toEventDate(Date.now()));
@@ -56,6 +58,8 @@ export const CreateEventForm = ({
       }
 
       setCreatedPath(`/${body.teamSlug}/${body.eventSlug}`);
+      // Team lists cached in the browser don't have the new event yet
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Något gick fel');
     } finally {

@@ -46,8 +46,10 @@ export const DeleteEventButton = ({
       }
 
       if (redirect) {
+        // A full load, so no page cached in the browser still lists the event
         const teamPath = basePath.slice(0, basePath.lastIndexOf('/'));
-        router.replace(body.teamDeleted ? '/' : teamPath);
+        globalThis.location.replace(body.teamDeleted ? '/' : teamPath);
+        return;
       }
       router.refresh();
     } catch (err) {

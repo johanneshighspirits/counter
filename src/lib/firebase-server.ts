@@ -1,5 +1,6 @@
 import { cert, getApp, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { revalidateTag, unstable_cache } from 'next/cache';
 import { cache } from 'react';
 import { toEventDate } from '@/lib/event-date';
 import type { LogEntry } from '@/lib/occupancy';
@@ -136,6 +137,7 @@ export async function resetEvent(teamSlug: string, eventSlug: string) {
     console.error(`Could not clear counter log for ${teamSlug}/${eventSlug}`);
     console.error(error);
   }
+  expireEventLog(teamSlug, eventSlug);
 }
 
 // Delete the event with its log and PIN, and the team too if this was its
@@ -146,6 +148,7 @@ export async function deleteEvent(
 ): Promise<boolean> {
   const teamRef = getTeamRef(teamSlug);
   await getAdminDb().recursiveDelete(getEventRef(teamSlug, eventSlug));
+  expireEventLog(teamSlug, eventSlug);
 
   // In a transaction, so an event created in the team meanwhile keeps it
   return getAdminDb().runTransaction(async (transaction) => {
@@ -210,9 +213,27 @@ export async function trimEventLog(
     writer.delete(doc.ref);
   }
   await writer.close();
+  expireEventLog(teamSlug, eventSlug);
 
   return docs.length;
 }
+
+const eventLogTag = (teamSlug: string, eventSlug: string) =>
+  `event-log:${teamSlug}/${eventSlug}`;
+
+// Drop the cached log right away, after entries were deleted
+const expireEventLog = (teamSlug: string, eventSlug: string) =>
+  revalidateTag(eventLogTag(teamSlug, eventSlug), { expire: 0 });
+
+// The whole log, cached for a minute so stats viewers and tab switches share
+// one read of it. The stats page listens for entries newer than the cached
+// ones, so nothing is missed.
+export const getCachedEventLog = (teamSlug: string, eventSlug: string) =>
+  unstable_cache(
+    () => getEventLog(teamSlug, eventSlug),
+    ['event-log', teamSlug, eventSlug],
+    { tags: [eventLogTag(teamSlug, eventSlug)], revalidate: 60 },
+  )();
 
 // The whole log, oldest first
 export async function getEventLog(

@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { getEvent, getEventLog } from '@/lib/firebase-server';
+import { getCachedEventLog, getEvent } from '@/lib/firebase-server';
 import { formatEventDate } from '@/lib/event-date';
 import { ChartSkeleton } from './_components/ChartSkeleton';
 import { LiveOccupancyChart } from './_components/LiveOccupancyChart';
@@ -20,7 +20,7 @@ const Charts = async ({
   teamSlug: string;
   eventSlug: string;
 }) => {
-  const log = await getEventLog(teamSlug, eventSlug);
+  const log = await getCachedEventLog(teamSlug, eventSlug);
   return (
     <LiveOccupancyChart
       teamSlug={teamSlug}
