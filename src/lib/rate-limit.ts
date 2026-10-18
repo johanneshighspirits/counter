@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
+import { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-server';
 
 // Vercel sets x-forwarded-for itself, so clients can't spoof the first entry
@@ -9,6 +10,7 @@ export const getClientIp = (request: NextRequest) =>
 // Counts a request for key and returns whether it is over limit in the
 // current fixed window. State lives in rateLimits/, which the security rules
 // don't expose to browsers. The key is hashed so IPs aren't stored as is.
+// A Firestore TTL policy on expiresAt deletes windows that have ended.
 export async function isRateLimited(
   key: string,
   limit: number,
@@ -23,7 +25,11 @@ export async function isRateLimited(
     const windowStart = snapshot.get('windowStart') as number | undefined;
 
     if (!windowStart || now - windowStart >= windowMs) {
-      transaction.set(ref, { windowStart: now, count: 1 });
+      transaction.set(ref, {
+        windowStart: now,
+        count: 1,
+        expiresAt: Timestamp.fromMillis(now + windowMs),
+      });
       return false;
     }
 
