@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminCookieOptions, getAdminCookieValue } from '@/lib/admin-auth';
+import {
+  isLoginRateLimited,
+  tooManyAttemptsResponse,
+} from '@/lib/rate-limit';
 
 // Global admin login: only ADMIN_PASSWORD, never an event PIN
 export async function POST(request: NextRequest) {
   try {
+    if (await isLoginRateLimited(request)) {
+      return tooManyAttemptsResponse();
+    }
+
     const { password } = await request.json();
     const adminPassword = process.env.ADMIN_PASSWORD;
     const cookieValue = getAdminCookieValue();

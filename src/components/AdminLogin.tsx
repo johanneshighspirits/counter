@@ -35,7 +35,12 @@ export const AdminLogin = ({
 
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        throw new Error(body.error ?? 'Invalid password');
+        throw new Error(
+          body.error ??
+            (response.status === 429
+              ? 'Too many attempts. Wait a while and try again.'
+              : 'Invalid password'),
+        );
       }
 
       // Refresh the page to re-evaluate server-side auth

@@ -43,10 +43,16 @@ export const CreateEventForm = ({
         },
         body: JSON.stringify({ teamName, eventName, date, pin }),
       });
-      const body = await response.json();
+      // Vercel's rate limit answers 429 without a JSON body
+      const body = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(body.error ?? 'Något gick fel');
+        throw new Error(
+          body.error ??
+            (response.status === 429
+              ? 'För många försök, vänta en stund och prova igen'
+              : 'Något gick fel'),
+        );
       }
 
       setCreatedPath(`/${body.teamSlug}/${body.eventSlug}`);

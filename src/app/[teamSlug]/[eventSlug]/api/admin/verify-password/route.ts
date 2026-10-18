@@ -5,6 +5,10 @@ import {
   getAdminCookieValue,
 } from '@/lib/admin-auth';
 import { checkPin } from '@/lib/event-pin';
+import {
+  isLoginRateLimited,
+  tooManyAttemptsResponse,
+} from '@/lib/rate-limit';
 
 // Accepts either the event's PIN or the global ADMIN_PASSWORD
 export async function POST(
@@ -12,6 +16,10 @@ export async function POST(
   { params }: RouteContext<'/[teamSlug]/[eventSlug]/api/admin/verify-password'>,
 ) {
   try {
+    if (await isLoginRateLimited(request)) {
+      return tooManyAttemptsResponse();
+    }
+
     const { teamSlug, eventSlug } = await params;
     const { password } = await request.json();
     const adminPassword = process.env.ADMIN_PASSWORD;
