@@ -4,6 +4,7 @@ import { getAdminDb, getEventRef, getTeamRef } from '@/lib/firebase-server';
 import { eventCookieOptions } from '@/lib/admin-auth';
 import { getEventPinRef, hashPin, PIN_PATTERN } from '@/lib/event-pin';
 import { isValidDate } from '@/lib/event-date';
+import { E2E_TEAM_SLUG, isE2eTeam } from '@/lib/e2e';
 
 // Keeps a shared link from being used to fill the database. Admins free up
 // spots by deleting old events.
@@ -66,9 +67,14 @@ export async function POST(request: NextRequest) {
     const teamRef = getTeamRef(teamSlug);
     const isNewTeam = !(await teamRef.get()).exists;
 
-    if (isNewTeam) {
-      const teams = await getAdminDb().collection('teams').count().get();
-      if (teams.data().count >= MAX_TEAMS) {
+    // The e2e team neither counts toward the cap nor is limited by it
+    if (isNewTeam && !isE2eTeam(teamSlug)) {
+      const [teams, e2eTeam] = await Promise.all([
+        getAdminDb().collection('teams').count().get(),
+        getTeamRef(E2E_TEAM_SLUG).get(),
+      ]);
+      const realTeams = teams.data().count - (e2eTeam.exists ? 1 : 0);
+      if (realTeams >= MAX_TEAMS) {
         return NextResponse.json(
           {
             error: `Det finns redan ${MAX_TEAMS} lag, så nya lag kan inte skapas just nu. Välj ett befintligt lag i listan.`,
@@ -76,7 +82,7 @@ export async function POST(request: NextRequest) {
           { status: 409 },
         );
       }
-    } else {
+    } else if (!isNewTeam) {
       const events = await teamRef.collection('events').count().get();
       if (events.data().count >= MAX_EVENTS_PER_TEAM) {
         return NextResponse.json(

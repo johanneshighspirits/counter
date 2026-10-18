@@ -1,5 +1,7 @@
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { BajenLogo } from '@/components/BajenLogo';
+import { E2E_COOKIE_NAME, isE2eTeam } from '@/lib/e2e';
 import { getTeam, getTeams } from '@/lib/firebase-server';
 import { CreateEventForm } from './_components/CreateEventForm';
 
@@ -7,7 +9,10 @@ export default async function Home(props: PageProps<'/'>) {
   const { team } = await props.searchParams;
   // "Nytt evenemang" on a team page links here with ?team=<slug>
   const initialTeam = typeof team === 'string' ? await getTeam(team) : null;
-  const teams = await getTeams();
+  const showE2eTeam = (await cookies()).has(E2E_COOKIE_NAME);
+  const teams = (await getTeams()).filter(
+    (t) => showE2eTeam || !isE2eTeam(t.slug),
+  );
 
   return (
     <main className="flex items-center justify-center min-h-dvh bg-linear-to-tr from-black to-green-950">

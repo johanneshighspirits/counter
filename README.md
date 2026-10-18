@@ -194,6 +194,30 @@ FIREBASE_SERVICE_ACCOUNT_KEY= \
 npm run dev
 ```
 
+## Tests
+
+### Security rules
+
+```bash
+npm run test:rules
+```
+
+Runs `rules-tests/` against `firestore.rules` in the emulator (Java 21 or newer), including clicks that overlap on two devices. Run it before deploying the rules.
+
+### End to end
+
+```bash
+npx playwright install chromium   # once
+npm run test:e2e                  # against the local dev server
+npm run test:e2e:prod             # against production, once it passes locally
+```
+
+Walks through one event's life in a phone-sized browser: creating it, counting, tickets, stats, admin settings, PIN lockout and deleting it. `npm run test:e2e` starts the dev server unless it's already running; set `E2E_BASE_URL` to test another deployment.
+
+The dev server uses the production database too, so both create and delete a real event. They do it in the e2e team, "JayBo Test Team" (`src/lib/e2e.ts`), which visitors never see: the start page only lists it for browsers with the `e2e` cookie, which the tests set, and it doesn't count toward the 20-team cap.
+
+Against production, each run creates two events and makes six login attempts, which counts toward the rate limits (5 new events and 10 logins per 10 minutes per IP), so leave about 10 minutes between runs.
+
 ## Troubleshooting
 
 ### Counter not syncing across devices?
