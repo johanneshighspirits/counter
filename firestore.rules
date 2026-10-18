@@ -1,47 +1,33 @@
 rules_version = '2';
 
 // The counter shares the (default) database in the jaybo-saver Firebase
-// project with another app. Deploying this file replaces the rules for the
-// whole database, so the other app's rules (share, users, goals, tasks) are
-// kept here unchanged.
+// project with an old app that is no longer used. Deploying this file
+// replaces the rules for the whole database, so everything outside teams/ is
+// closed to browsers.
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // --- jaybo-saver app ---
-
-    match /share/{invite=**} {
-      allow read;
-    }
-    match /users/{userId=**} {
-      allow read, write: if
-        path("/" + request.auth.uid) == userId
-    }
-    match /goals/{goalId=**} {
-        allow read, write: if
-          resource.data.users[request.auth.uid] == true
-    }
-    match /tasks/{taskId=**} {
-      allow read, write: if true
-    }
-
-    // --- Counter app ---
-
     match /teams/{teamSlug} {
       allow read: if true;
 
       match /events/{eventSlug} {
         allow read: if true;
 
-        // Door and ticket devices may only change the two counters.
-        // Creating teams and events, max count and resets go through
-        // firebase-admin.
+        // Door and ticket devices may only change one counter at a time, by
+        // a single click's worth, together with exactly one new log entry
+        // (lastLogId). Creating teams and events, max count and resets go
+        // through firebase-admin.
         allow update: if
           request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['count', 'ticketsSold'])
-          && request.resource.data.count is int
-          && request.resource.data.count >= 0
-          && request.resource.data.ticketsSold is int
-          && request.resource.data.ticketsSold >= 0;
+            .hasOnly(['count', 'ticketsSold', 'lastLogId'])
+          && request.resource.data.lastLogId is string
+          && !exists(/databases/$(database)/documents/teams/$(teamSlug)/events/$(eventSlug)/log/$(request.resource.data.lastLogId))
+          && existsAfter(/databases/$(database)/documents/teams/$(teamSlug)/events/$(eventSlug)/log/$(request.resource.data.lastLogId))
+          && isCounter(request.resource.data.count)
+          && isCounter(request.resource.data.ticketsSold)
+          && math.abs(request.resource.data.count - resource.data.get('count', 0)) <= 1
+          && request.resource.data.ticketsSold - resource.data.get('ticketsSold', 0) >= -1
+          && request.resource.data.ticketsSold - resource.data.get('ticketsSold', 0) <= 4;
 
         match /log/{entryId} {
           // The stats page listens for new entries
@@ -49,15 +35,43 @@ service cloud.firestore {
           allow create: if
             request.resource.data.keys()
               .hasOnly(['type', 'delta', 'newCount', 'source', 'createdAt'])
-            && request.resource.data.type in ['occupancy', 'tickets']
+            && request.resource.data.keys()
+              .hasAll(['type', 'delta', 'newCount', 'source', 'createdAt'])
+            && request.resource.data.source in ['main-door', 'ticket_office']
+            && request.resource.data.createdAt == request.time
             && request.resource.data.delta is int
             && request.resource.data.newCount is int
-            && request.resource.data.createdAt == request.time;
+            && matchesCounterChange(
+              request.resource.data,
+              entryId,
+              get(/databases/$(database)/documents/teams/$(teamSlug)/events/$(eventSlug)).data,
+              getAfter(/databases/$(database)/documents/teams/$(teamSlug)/events/$(eventSlug)).data
+            );
         }
 
         // private/pin (admin PIN hash) has no rule, so only firebase-admin
         // on the server can read or write it.
       }
+    }
+
+    function isCounter(value) {
+      return value is int && value >= 0;
+    }
+
+    // The entry must be the event's lastLogId in the same write, and match
+    // the change to its counter (clamped to 0, like updateCounter)
+    function matchesCounterChange(entry, entryId, before, after) {
+      let field = entry.type == 'occupancy' ? 'count' : 'ticketsSold';
+      let otherField = entry.type == 'occupancy' ? 'ticketsSold' : 'count';
+      let expected = before.get(field, 0) + entry.delta;
+      return entry.type in ['occupancy', 'tickets']
+        && after.lastLogId == entryId
+        && after[field] == entry.newCount
+        && after.get(otherField, 0) == before.get(otherField, 0)
+        && entry.newCount == (expected < 0 ? 0 : expected)
+        && (entry.type == 'occupancy'
+          ? entry.delta in [-1, 1]
+          : entry.delta in [-1, 1, 2, 3, 4]);
     }
   }
 }

@@ -49,7 +49,8 @@ const fieldByEventType = {
   tickets: 'ticketsSold',
 } as const;
 
-// Atomically change a counter (clamped to 0) and write a log entry
+// Atomically change a counter (clamped to 0) and write a log entry. The
+// security rules require the event's lastLogId to name the new entry.
 export async function updateCounter(
   teamSlug: string,
   eventSlug: string,
@@ -68,9 +69,10 @@ export async function updateCounter(
     }
 
     const newValue = Math.max(0, (snapshot.get(field) ?? 0) + delta);
+    const logRef = doc(collection(eventRef, 'log'));
 
-    transaction.update(eventRef, { [field]: newValue });
-    transaction.set(doc(collection(eventRef, 'log')), {
+    transaction.update(eventRef, { [field]: newValue, lastLogId: logRef.id });
+    transaction.set(logRef, {
       type: eventType,
       delta,
       newCount: newValue,

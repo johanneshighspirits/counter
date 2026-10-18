@@ -5,6 +5,10 @@ import { eventCookieOptions } from '@/lib/admin-auth';
 import { getEventPinRef, hashPin, PIN_PATTERN } from '@/lib/event-pin';
 import { isValidDate } from '@/lib/event-date';
 
+// Keeps a shared link from being used to fill the database. Admins free up
+// spots by deleting old events.
+const MAX_EVENTS_PER_TEAM = 20;
+
 // Top-level paths that a team slug must not shadow
 const RESERVED_TEAM_SLUGS = new Set(['admin', 'api']);
 
@@ -61,6 +65,18 @@ export async function POST(request: NextRequest) {
     const baseSlug = eventSlugify(trimmedEventName);
     const teamRef = getTeamRef(teamSlug);
     const isNewTeam = !(await teamRef.get()).exists;
+
+    if (!isNewTeam) {
+      const events = await teamRef.collection('events').count().get();
+      if (events.data().count >= MAX_EVENTS_PER_TEAM) {
+        return NextResponse.json(
+          {
+            error: `Laget har redan ${MAX_EVENTS_PER_TEAM} evenemang. Ta bort ett gammalt under dess admin-sida först.`,
+          },
+          { status: 409 },
+        );
+      }
+    }
 
     // Try "skridskodisco", then "skridskodisco-2", "skridskodisco-3", ...
     for (let attempt = 1; attempt <= 20; attempt++) {

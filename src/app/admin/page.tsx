@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AdminLogin } from '@/components/AdminLogin';
 import { BajenLogo } from '@/components/BajenLogo';
+import { DeleteEventButton } from '@/components/DeleteEventButton';
 import { ResetButton } from '@/components/ResetButton';
 import { isGlobalAdmin } from '@/lib/admin-auth';
 import { getEventPinStatus, type PinStatus } from '@/lib/event-pin';
@@ -77,7 +78,7 @@ export default async function GlobalAdminPage() {
               <p className="text-slate-400 text-sm">No events</p>
             )}
 
-            <ul className="flex flex-col divide-y divide-white/10 border border-white/20 rounded-lg">
+            <ul className="flex flex-col divide-y divide-white/10 bg-[#0f1a14] border border-white/20 rounded-lg">
               {team.events.map((event) => {
                 const basePath = `/${team.slug}/${event.slug}`;
                 const pinStatus =
@@ -122,6 +123,12 @@ export default async function GlobalAdminPage() {
                       label="Reset"
                       className="px-4 py-2 text-sm"
                       confirmMessage={`Reset ${team.name} / ${event.name}? This sets both counters to 0 and deletes the history.`}
+                    />
+                    <DeleteEventButton
+                      basePath={basePath}
+                      eventName={`${team.name} / ${event.name}`}
+                      label="Delete"
+                      className="px-4 py-2 text-sm"
                     />
                   </li>
                 );

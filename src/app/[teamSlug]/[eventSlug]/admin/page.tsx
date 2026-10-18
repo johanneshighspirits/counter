@@ -4,6 +4,7 @@ import { DateInput } from './_components/DateInput';
 import { MaxCountInput } from './_components/MaxCountInput';
 import { TrimLogForm } from './_components/TrimLogForm';
 import { AdminLogin } from '@/components/AdminLogin';
+import { DeleteEventButton } from '@/components/DeleteEventButton';
 import { ResetButton } from '@/components/ResetButton';
 import { isAdmin } from '@/lib/admin-auth';
 import { formatEventDate } from '@/lib/event-date';
@@ -97,13 +98,18 @@ export default async function AdminPage(
 
       <Section
         title="Danger zone"
-        description="Sets both counters to 0 and deletes the whole log."
+        description="Reset sets both counters to 0 and deletes the whole log. Delete removes the event and its links for good, which also frees up a spot for the team's new events."
         className="border border-red-400/40">
         <ResetButton
           url={`${basePath}/api/counter/reset`}
           label="Reset counters and log"
           className="p-3 border-red-400! text-red-300 hover:bg-red-950/60! hover:text-red-200!"
           confirmMessage={`Reset ${event.name}? This sets both counters to 0 and deletes the history.`}
+        />
+        <DeleteEventButton
+          basePath={basePath}
+          eventName={event.name}
+          redirect
         />
       </Section>
     </div>

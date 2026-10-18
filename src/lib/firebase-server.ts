@@ -138,6 +138,28 @@ export async function resetEvent(teamSlug: string, eventSlug: string) {
   }
 }
 
+// Delete the event with its log and PIN, and the team too if this was its
+// last event. Returns whether the team was deleted.
+export async function deleteEvent(
+  teamSlug: string,
+  eventSlug: string,
+): Promise<boolean> {
+  const teamRef = getTeamRef(teamSlug);
+  await getAdminDb().recursiveDelete(getEventRef(teamSlug, eventSlug));
+
+  // In a transaction, so an event created in the team meanwhile keeps it
+  return getAdminDb().runTransaction(async (transaction) => {
+    const remaining = await transaction.get(
+      teamRef.collection('events').limit(1),
+    );
+    if (!remaining.empty) {
+      return false;
+    }
+    transaction.delete(teamRef);
+    return true;
+  });
+}
+
 export type LogSummary = {
   entries: number;
   first: number | null;
