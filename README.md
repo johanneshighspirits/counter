@@ -61,6 +61,12 @@ Events can also be created from the command line (these have no PIN, so only `AD
 node --env-file=.env.local scripts/create-event.mjs team17 "Team 17" skridskodisco "Skridskodisco"
 ```
 
+To set or change an event's admin PIN (this also clears a lockout):
+
+```bash
+node --env-file=.env.local scripts/set-pin.mjs team17 skridskodisco 2017
+```
+
 To move an event from the old single-level `projects/{slug}` model, with its log and PIN:
 
 ```bash
@@ -116,6 +122,7 @@ counter/
 │       ├── firebase.ts         # Browser Firestore client and counter updates
 │       └── firebase-server.ts  # firebase-admin for server code
 ├── scripts/create-event.mjs    # Create a team and event
+├── scripts/set-pin.mjs        # Set an event's admin PIN
 ├── scripts/migrate-project.mjs # Move an old projects/{slug} to a team event
 ├── firestore.rules             # Firestore security rules
 └── firebase.json               # Firebase CLI config
@@ -143,6 +150,7 @@ The security rules only let browsers change `count` and `ticketsSold` and add lo
 ### Pages
 
 - **`/`**: create a new event with a name and an admin PIN
+- **`/admin`**: every team and event with live counts, and resetting one or all events. `ADMIN_PASSWORD` only
 - **`/[team]`**: the team's events, newest first
 - **`/[team]/[event]`**: event home page with links to the counter, tickets and stats
 - **`/[team]/[event]/counter`**: door counter with +/− buttons for occupancy

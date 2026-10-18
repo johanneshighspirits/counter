@@ -5,12 +5,12 @@ import { eventCookieOptions } from '@/lib/admin-auth';
 import { getEventPinRef, hashPin, PIN_PATTERN } from '@/lib/event-pin';
 
 // Top-level paths that a team slug must not shadow
-const RESERVED_TEAM_SLUGS = new Set(['api']);
+const RESERVED_TEAM_SLUGS = new Set(['admin', 'api']);
 
 const toAscii = (name: string) =>
   name
     .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
 // "Team 17" -> "team17". No separators, so "Team 17" and "team17" are the

@@ -3,7 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export const AdminLogin = ({ basePath }: { basePath: string }) => {
+// basePath is "/{team}/{event}" for an event, or "" for the global admin page
+export const AdminLogin = ({
+  basePath,
+  placeholder = 'Enter PIN or admin password',
+}: {
+  basePath: string;
+  placeholder?: string;
+}) => {
   const router = useRouter();
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +59,7 @@ export const AdminLogin = ({ basePath }: { basePath: string }) => {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Enter PIN or admin password"
+          placeholder={placeholder}
           disabled={isLoading}
           className="border border-white bg-transparent p-3 rounded-sm text-white placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
           autoFocus

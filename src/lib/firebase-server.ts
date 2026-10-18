@@ -89,6 +89,31 @@ export async function getTeamEvents(teamSlug: string): Promise<TeamEvent[]> {
     .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 }
 
+export type TeamWithEvents = Team & { events: TeamEvent[] };
+
+export async function getTeamsWithEvents(): Promise<TeamWithEvents[]> {
+  const teams = await getTeams();
+  return Promise.all(
+    teams.map(async (team) => ({
+      ...team,
+      events: await getTeamEvents(team.slug),
+    })),
+  );
+}
+
+// Set both counters to 0 and clear the log
+export async function resetEvent(teamSlug: string, eventSlug: string) {
+  const eventRef = getEventRef(teamSlug, eventSlug);
+  await eventRef.update({ count: 0, ticketsSold: 0 });
+
+  try {
+    await getAdminDb().recursiveDelete(eventRef.collection('log'));
+  } catch (error) {
+    console.error(`Could not clear counter log for ${teamSlug}/${eventSlug}`);
+    console.error(error);
+  }
+}
+
 export type OccupancyByMinute = {
   minute: string;
   entries: number;

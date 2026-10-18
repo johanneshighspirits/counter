@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  ADMIN_COOKIE_NAME,
-  getAdminCookieValue,
+  adminCookieOptions,
   eventCookieOptions,
+  getAdminCookieValue,
 } from '@/lib/admin-auth';
 import { checkPin } from '@/lib/event-pin';
 
@@ -25,14 +25,7 @@ export async function POST(
       // Set a secure httpOnly cookie for session management
       const response = NextResponse.json({ success: true }, { status: 200 });
 
-      response.cookies.set({
-        name: ADMIN_COOKIE_NAME,
-        value: cookieValue,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 60 * 60 * 24, // 24 hours
-      });
+      response.cookies.set(adminCookieOptions(cookieValue));
 
       return response;
     }

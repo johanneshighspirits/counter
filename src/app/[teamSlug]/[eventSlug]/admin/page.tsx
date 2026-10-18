@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import { ResetButton } from './_components/ResetButton';
 import { MaxCountInput } from './_components/MaxCountInput';
-import { AdminLogin } from './_components/AdminLogin';
+import { AdminLogin } from '@/components/AdminLogin';
+import { ResetButton } from '@/components/ResetButton';
 import { isAdmin } from '@/lib/admin-auth';
+import { getEvent } from '@/lib/firebase-server';
 
 const pages = [
   { path: '', label: 'Home' },
@@ -22,6 +23,8 @@ export default async function AdminPage(
     return <AdminLogin basePath={basePath} />;
   }
 
+  const event = await getEvent(teamSlug, eventSlug);
+
   return (
     <main>
       <div className="grid place-items-center min-h-dvh">
@@ -38,7 +41,10 @@ export default async function AdminPage(
           </nav>
 
           <div className="flex flex-col gap-6">
-            <ResetButton basePath={basePath} />
+            <ResetButton
+              url={`${basePath}/api/counter/reset`}
+              confirmMessage={`Reset ${event?.name ?? eventSlug}? This sets both counters to 0 and deletes the history.`}
+            />
             <MaxCountInput basePath={basePath} />
           </div>
         </div>

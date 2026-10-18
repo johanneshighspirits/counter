@@ -38,13 +38,22 @@ const safeEqual = (actual: string | undefined, expected: string | null) =>
   actual.length === expected.length &&
   timingSafeEqual(Buffer.from(actual), Buffer.from(expected));
 
-// Logged in with ADMIN_PASSWORD (all events) or with the event's PIN
-export async function isAdmin(teamSlug: string, eventSlug: string) {
+// Logged in with ADMIN_PASSWORD, which unlocks every team and event
+export async function isGlobalAdmin() {
   const cookieStore = await cookies();
+  return safeEqual(
+    cookieStore.get(ADMIN_COOKIE_NAME)?.value,
+    getAdminCookieValue(),
+  );
+}
 
-  if (safeEqual(cookieStore.get(ADMIN_COOKIE_NAME)?.value, getAdminCookieValue())) {
+// Logged in with ADMIN_PASSWORD or with the event's PIN
+export async function isAdmin(teamSlug: string, eventSlug: string) {
+  if (await isGlobalAdmin()) {
     return true;
   }
+
+  const cookieStore = await cookies();
 
   const eventCookie = cookieStore.get(getEventCookieName(teamSlug, eventSlug));
   if (!eventCookie) {
@@ -60,6 +69,15 @@ export async function isAdmin(teamSlug: string, eventSlug: string) {
     )
   );
 }
+
+export const adminCookieOptions = (value: string) => ({
+  name: ADMIN_COOKIE_NAME,
+  value,
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict' as const,
+  maxAge: 60 * 60 * 24, // 24 hours
+});
 
 export const eventCookieOptions = (
   teamSlug: string,

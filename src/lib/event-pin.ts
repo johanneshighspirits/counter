@@ -29,6 +29,33 @@ export async function getEventPinHash(teamSlug: string, eventSlug: string) {
   return (snapshot.get('pinHash') as string | undefined) ?? null;
 }
 
+// Replaces the PIN and clears any lockout. Existing PIN logins stop working,
+// since their cookies are keyed with the old hash.
+export async function setEventPin(
+  teamSlug: string,
+  eventSlug: string,
+  pin: string,
+) {
+  await getEventPinRef(teamSlug, eventSlug).set({
+    pinHash: await hashPin(pin),
+    failedAttempts: 0,
+  });
+}
+
+export type PinStatus = 'none' | 'set' | 'locked';
+
+export async function getEventPinStatus(
+  teamSlug: string,
+  eventSlug: string,
+): Promise<PinStatus> {
+  const snapshot = await getEventPinRef(teamSlug, eventSlug).get();
+  if (!snapshot.get('pinHash')) {
+    return 'none';
+  }
+  const lockedUntil = snapshot.get('lockedUntil') as Timestamp | undefined;
+  return lockedUntil && lockedUntil.toMillis() > Date.now() ? 'locked' : 'set';
+}
+
 export const MAX_PIN_ATTEMPTS = 3;
 const LOCKOUT_MS = 15 * 60_000;
 
